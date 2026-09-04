@@ -1,0 +1,52 @@
+# One ticker per line (Yahoo Finance symbol format). Lines starting with
+# '#' are ignored. This is just a *candidate list to check* -- everything
+# here still has to pass the Shariah screen; nothing here is pre-approved.
+# Edit freely to match what you can actually trade on Trade Republic.
+AAPL
+MSFT
+GOOGL
+NVDA
+AVGO
+ADBE
+CRM
+ORCL
+CSCO
+AMD
+QCOM
+TXN
+INTU
+NOW
+PANW
+SNPS
+CDNS
+COST
+PG
+KO
+PEP
+MDLZ
+CL
+EL
+JNJ
+UNH
+LLY
+ABBV
+MRK
+TMO
+ABT
+DHR
+ISRG
+XOM
+CVX
+HD
+NKE
+MCD
+SBUX
+LOW
+LIN
+APD
+SHW
+ASML
+SAP
+SIE.DE
+AIR.PA
+MC.PA
