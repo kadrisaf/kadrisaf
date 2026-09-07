@@ -93,4 +93,5 @@ DEFAULT_UNIVERSE = [
     "HD", "NKE", "MCD", "SBUX", "LOW",
     "LIN", "APD", "SHW",
     "ASML", "SAP", "SIE.DE", "AIR.PA", "MC.PA",
+    "CCJ",  # Cameco -- uranium miner, added for uranium-theme screening
 ]
