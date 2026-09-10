@@ -6,6 +6,10 @@ A research tool that screens a configurable universe of stocks for
 places a trade.** You read the report and execute manually in your broker
 (Trade Republic, which has no public API this could plug into anyway).
 
+See **[ADVISORY_PROTOCOL.md](./ADVISORY_PROTOCOL.md)** for the standing rules
+this assistant follows when giving trading input based on this tool --
+updated after each live cycle with what worked and what didn't.
+
 ## ⚠️ Read this before using it
 
 - **Not a certified Shariah ruling.** The compliance screen is a rules-based
