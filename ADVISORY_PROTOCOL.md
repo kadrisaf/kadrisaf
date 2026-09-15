@@ -79,15 +79,23 @@ exposure across simultaneously open positions. Never size up, remove a stop,
 or reach for leverage to chase a target return -- a target is not a reason to
 increase risk, it's a reason to accept that not every cycle clears it.
 
-## 7. Known infrastructure limitation
+## 7. Live screener (resolved Sept 15, 2026)
 
-This assistant's sandboxed environment cannot reach live market data
-providers (Yahoo Finance etc. are blocked by network policy), so the actual
-quantitative screener (`halal_trader/`) can't run from here directly. Until
-GitHub Actions is enabled on this repo (Settings -> Actions) so the screener
-can run on an unrestricted runner, technical reads are qualitative
-(news/analyst-sourced) rather than computed -- this must be stated as a
-caveat on every pick, not left implicit.
+GitHub Actions is now enabled and the default branch points at this project,
+so the real quantitative screener runs on an unrestricted GitHub-hosted
+runner via `.github/workflows/weekly_screen.yml`. Trigger it with a
+`workflow_dispatch` run rather than falling back to qualitative,
+news-sourced technical reads -- those are now the fallback for when a fresh
+run isn't practical (e.g. mid-day between scheduled runs), not the default.
+Always say plainly which one a given check-in is based on.
+
+Caught on the very first live run: any symbol that passed the Shariah screen
+but didn't have a qualifying trade setup was silently dropped from the
+report instead of being accounted for (fixed in `cli.py`/`report.py`, see
+git history around Sept 15 2026 -- `not_qualifying` is now a tracked
+bucket). A reminder that "the tool ran without error" is not the same as
+"the tool's output is trustworthy" -- read the numbers, don't just check
+the run succeeded.
 
 ## 8. Honesty standard
 
