@@ -41,10 +41,21 @@ def load_universe(path: str | None) -> List[str]:
 
 def run(
     universe: List[str], top: int, provider: DataProvider | None = None
-) -> Tuple[List[Tuple[ScreenResult, TradeSignal]], List[ScreenResult], List[str]]:
+) -> Tuple[
+    List[Tuple[ScreenResult, TradeSignal]],
+    List[ScreenResult],
+    List[Tuple[ScreenResult, TradeSignal]],
+    List[str],
+]:
+    """Screen every symbol in `universe` and bucket it into exactly one of:
+    ranked (compliant + qualifying setup), screened_out (fails Shariah
+    screen), not_qualifying (compliant but no qualifying trade setup right
+    now), or skipped (data unavailable). Every symbol lands in exactly one
+    bucket -- nothing is silently dropped."""
     provider = provider or YFinanceProvider()
     ranked: List[Tuple[ScreenResult, TradeSignal]] = []
     screened_out: List[ScreenResult] = []
+    not_qualifying: List[Tuple[ScreenResult, TradeSignal]] = []
     skipped: List[str] = []
 
     for symbol in universe:
@@ -70,9 +81,11 @@ def run(
         signal = evaluate_signal(symbol, history)
         if signal.qualifies:
             ranked.append((screen, signal))
+        else:
+            not_qualifying.append((screen, signal))
 
     ranked.sort(key=lambda pair: pair[1].score or 0, reverse=True)
-    return ranked[:top], screened_out, skipped
+    return ranked[:top], screened_out, not_qualifying, skipped
 
 
 def main(argv: List[str] | None = None) -> int:
@@ -83,8 +96,8 @@ def main(argv: List[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     universe = load_universe(args.universe)
-    ranked, screened_out, skipped = run(universe, args.top)
-    report = build_report(ranked, screened_out, skipped)
+    ranked, screened_out, not_qualifying, skipped = run(universe, args.top)
+    report = build_report(ranked, screened_out, not_qualifying, skipped)
 
     Path(args.out).write_text(report)
     print(report)

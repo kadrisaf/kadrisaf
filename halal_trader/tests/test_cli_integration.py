@@ -45,10 +45,14 @@ def test_run_screens_signals_and_ranks_end_to_end():
         },
     )
 
-    ranked, screened_out, skipped = run(["GOOD", "BANK", "FLAT", "MISSING"], top=5, provider=provider)
+    ranked, screened_out, not_qualifying, skipped = run(
+        ["GOOD", "BANK", "FLAT", "MISSING"], top=5, provider=provider
+    )
 
     assert [sig.symbol for _, sig in ranked] == ["GOOD"]
     assert [s.symbol for s in screened_out] == ["BANK"]
     assert skipped == ["MISSING"]
-    # FLAT passed the Shariah screen but never qualifies on the trade signal
-    # (no volatility/trend at all), so it's simply absent from `ranked`.
+    # FLAT passes the Shariah screen but never qualifies on the trade signal
+    # (no volatility/trend at all) -- it must still be accounted for, not
+    # silently dropped, so it shows up here instead of vanishing.
+    assert [sig.symbol for _, sig in not_qualifying] == ["FLAT"]

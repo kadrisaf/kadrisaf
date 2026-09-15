@@ -20,9 +20,15 @@ def test_report_lists_ranked_candidates_and_disclaimer():
         score=12.3,
     )
 
+    not_qualifying_screen = ScreenResult(symbol="FLT", compliant=True)
+    not_qualifying_signal = TradeSignal(
+        symbol="FLT", qualifies=False, reasons_excluded=["RSI 50.0 outside band"]
+    )
+
     report = build_report(
         ranked=[(screen, signal)],
         screened_out=[ScreenResult(symbol="BNK", compliant=False, reasons=["excluded business activity: bank"])],
+        not_qualifying=[(not_qualifying_screen, not_qualifying_signal)],
         skipped=["ZZZ"],
         as_of=date(2026, 1, 5),
     )
@@ -31,10 +37,14 @@ def test_report_lists_ranked_candidates_and_disclaimer():
     assert "TST" in report
     assert "Not financial or Shariah advice" in report
     assert "BNK" in report
+    assert "FLT" in report
+    assert "no qualifying setup today" in report
     assert "ZZZ" in report
+    # Universe count must include every bucket, not just ranked+screened_out+skipped.
+    assert "Universe screened: 4 symbols" in report
 
 
 def test_report_handles_empty_ranked_list():
-    report = build_report(ranked=[], screened_out=[], skipped=[])
+    report = build_report(ranked=[], screened_out=[], not_qualifying=[], skipped=[])
 
     assert "No symbol passed" in report

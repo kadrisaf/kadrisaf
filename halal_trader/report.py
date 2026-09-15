@@ -23,15 +23,17 @@ DISCLAIMER = """\
 def build_report(
     ranked: List[Tuple[ScreenResult, TradeSignal]],
     screened_out: List[ScreenResult],
+    not_qualifying: List[Tuple[ScreenResult, TradeSignal]],
     skipped: List[str],
     as_of: date | None = None,
 ) -> str:
     as_of = as_of or datetime.utcnow().date()
+    total = len(ranked) + len(screened_out) + len(not_qualifying) + len(skipped)
     lines = [
         f"# Halal short-term watchlist -- {as_of.isoformat()}",
         "",
         DISCLAIMER,
-        f"Universe screened: {len(ranked) + len(screened_out) + len(skipped)} symbols. "
+        f"Universe screened: {total} symbols. "
         f"Shariah-compliant candidates with a qualifying setup: **{len(ranked)}**.",
         "",
     ]
@@ -60,6 +62,19 @@ def build_report(
         lines += ["", "## Excluded on Shariah screen", ""]
         for s in screened_out:
             lines.append(f"- **{s.symbol}**: {'; '.join(s.reasons)}")
+
+    if not_qualifying:
+        lines += [
+            "",
+            "## Shariah-compliant, but no qualifying setup today",
+            "",
+            "Passed the screen -- just nothing worth entering right now (wrong "
+            "trend/momentum/volume). Worth re-checking on a future run, not excluded "
+            "for cause.",
+            "",
+        ]
+        for screen, sig in not_qualifying:
+            lines.append(f"- **{sig.symbol}**: {'; '.join(sig.reasons_excluded)}")
 
     if skipped:
         lines += ["", "## Skipped (data unavailable)", ""]
