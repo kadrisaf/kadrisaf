@@ -94,4 +94,14 @@ DEFAULT_UNIVERSE = [
     "LIN", "APD", "SHW",
     "ASML", "SAP", "SIE.DE", "AIR.PA", "MC.PA",
     "CCJ",  # Cameco -- uranium miner, added for uranium-theme screening
+    # -- expanded Sept 2026: broader sector/geography coverage --
+    "TSM", "MU", "AMAT", "LRCX", "KLAC", "MRVL", "ON",  # semis
+    "ADSK", "WDAY", "TEAM", "SHOP",  # software
+    "VRTX", "REGN", "GILD", "AMGN",  # biotech
+    "SYK", "BSX", "MDT", "EW", "ZTS",  # healthcare devices/animal health
+    "CAT", "DE", "HON", "UPS",  # industrials
+    "FCX", "NEM", "ECL",  # materials/mining
+    "COP", "SLB", "EOG",  # energy
+    "CMG", "YUM", "TJX", "ROST",  # consumer
+    "ADS.DE", "BAS.DE", "OR.PA", "DTE.DE",  # EU
 ]
