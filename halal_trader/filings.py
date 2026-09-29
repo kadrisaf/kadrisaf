@@ -14,6 +14,7 @@ just returns no filings, which is correct, not a failure.
 
 from __future__ import annotations
 
+import sys
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Protocol, Sequence
 
@@ -72,6 +73,12 @@ class SecEdgarFilingsProvider:
             base_symbol = symbol.split(".")[0].upper()
             cik = ticker_map.get(base_symbol)
             if cik is None:
+                print(
+                    f"[filings] {symbol}: no CIK match in SEC's ticker map "
+                    f"({len(ticker_map)} tickers loaded) -- not an SEC filer "
+                    "under this ticker, or the map lookup itself is broken",
+                    file=sys.stderr,
+                )
                 return []
             resp = requests.get(
                 self.SUBMISSIONS_URL.format(cik=cik),
@@ -80,9 +87,18 @@ class SecEdgarFilingsProvider:
             )
             resp.raise_for_status()
             data = resp.json()
-        except Exception:
+        except Exception as exc:
+            print(f"[filings] {symbol}: fetch/parse raised: {exc}", file=sys.stderr)
             return []
-        return _parse_filings(data, cik, forms, limit)
+
+        items = _parse_filings(data, cik, forms, limit)
+        raw_count = len(data.get("filings", {}).get("recent", {}).get("form", []))
+        print(
+            f"[filings] {symbol}: cik={cik}, {raw_count} raw filings, "
+            f"{len(items)} matching {forms}",
+            file=sys.stderr,
+        )
+        return items
 
 
 def _parse_filings(data: dict, cik: int, forms: Sequence[str], limit: int) -> List[FilingItem]:
