@@ -15,15 +15,25 @@ import argparse
 import csv
 import os
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Tuple
 
 from . import config
 from .data_provider import DataProvider, DataUnavailable, NewsItem, YFinanceProvider
+from .filings import FilingItem, SecEdgarFilingsProvider
+from .macro import YFinanceMacroProvider
 from .report import build_report
 from .sentiment import AnthropicSentimentTagger, SentimentTag
 from .shariah_screen import ScreenResult, screen_company
 from .signals import TradeSignal, evaluate_signal
+from .track_record import (
+    load_track_record,
+    record_new_candidates,
+    resolve_pending,
+    save_track_record,
+    summarize_track_record,
+)
 
 
 def load_universe(path: str | None) -> List[str]:
@@ -95,8 +105,14 @@ def main(argv: List[str] | None = None) -> int:
     parser.add_argument("--universe", help="CSV file with one ticker per line", default=None)
     parser.add_argument("--top", type=int, default=10, help="max candidates to keep")
     parser.add_argument("--out", default="report.md", help="output Markdown path")
+    parser.add_argument(
+        "--track-record",
+        default="track_record/candidates.csv",
+        help="CSV path for the outcome tracker (see track_record.py)",
+    )
     args = parser.parse_args(argv)
 
+    as_of = datetime.now(timezone.utc).date()
     universe = load_universe(args.universe)
     provider = YFinanceProvider()
     ranked, screened_out, not_qualifying, skipped = run(universe, args.top, provider=provider)
@@ -140,7 +156,48 @@ def main(argv: List[str] | None = None) -> int:
     elif ranked and not api_key:
         print("[sentiment] ANTHROPIC_API_KEY not set -- skipping sentiment tagging", file=sys.stderr)
 
-    report = build_report(ranked, screened_out, not_qualifying, skipped, news=news, sentiment=sentiment)
+    # Recent SEC 8-K filings for the same ranked names -- free, no key,
+    # only covers SEC filers (see filings.py). Same supplementary,
+    # never-fails-the-run pattern as the news fetch above.
+    filings_provider = SecEdgarFilingsProvider()
+    filings: Dict[str, List[FilingItem]] = {}
+    for _screen, sig in ranked:
+        try:
+            filings[sig.symbol] = filings_provider.get_recent_filings(sig.symbol)
+        except Exception as exc:
+            print(f"[filings] {sig.symbol}: fetch failed: {exc}", file=sys.stderr)
+            filings[sig.symbol] = []
+
+    # Macro snapshot -- always attempted, independent of whether anything
+    # qualified today. Informational only; see macro.py.
+    macro = None
+    try:
+        macro = YFinanceMacroProvider().get_snapshot()
+    except Exception as exc:
+        print(f"[macro] fetch failed: {exc}", file=sys.stderr)
+
+    # Outcome tracker: resolve anything from prior runs that's now due,
+    # record today's candidates, and persist. See track_record.py for why
+    # this exists -- it's the groundwork for ever validating this screen
+    # against real results, not a scoring input.
+    track_records = load_track_record(args.track_record)
+    resolve_pending(track_records, provider)
+    record_new_candidates(track_records, ranked, as_of)
+    save_track_record(args.track_record, track_records)
+    track_record_summary = summarize_track_record(track_records)
+
+    report = build_report(
+        ranked,
+        screened_out,
+        not_qualifying,
+        skipped,
+        as_of=as_of,
+        news=news,
+        sentiment=sentiment,
+        filings=filings,
+        macro=macro,
+        track_record_summary=track_record_summary,
+    )
 
     Path(args.out).write_text(report)
     print(report)

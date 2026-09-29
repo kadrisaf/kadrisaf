@@ -6,6 +6,8 @@ from datetime import date, datetime
 from typing import Dict, List, Optional, Tuple
 
 from .data_provider import NewsItem
+from .filings import FilingItem
+from .macro import MacroSnapshot
 from .sentiment import SentimentTag
 from .shariah_screen import ScreenResult
 from .signals import TradeSignal
@@ -30,6 +32,9 @@ def build_report(
     as_of: date | None = None,
     news: Optional[Dict[str, List[NewsItem]]] = None,
     sentiment: Optional[Dict[str, SentimentTag]] = None,
+    filings: Optional[Dict[str, List[FilingItem]]] = None,
+    macro: Optional[MacroSnapshot] = None,
+    track_record_summary: Optional[dict] = None,
 ) -> str:
     as_of = as_of or datetime.utcnow().date()
     total = len(ranked) + len(screened_out) + len(not_qualifying) + len(skipped)
@@ -41,6 +46,34 @@ def build_report(
         f"Shariah-compliant candidates with a qualifying setup: **{len(ranked)}**.",
         "",
     ]
+
+    if macro is not None:
+        lines.append("## Macro snapshot")
+        lines.append("")
+        if macro.vix is not None:
+            lines.append(f"- VIX: {macro.vix} ({macro.vix_label})")
+        if macro.ten_year_yield_pct is not None:
+            lines.append(f"- 10-year Treasury yield: {macro.ten_year_yield_pct}%")
+        lines.append(
+            "- Informational only -- not a filter, doesn't change ranking or sizing. "
+            "Weigh it yourself."
+        )
+        lines.append("")
+
+    if track_record_summary is not None:
+        lines.append("## Track record so far")
+        lines.append("")
+        lines.append(
+            f"- {track_record_summary['count']} resolved trades, "
+            f"{track_record_summary['wins']} wins "
+            f"({track_record_summary['win_rate']}% win rate), "
+            f"average return {track_record_summary['avg_return_pct']:+.2f}%."
+        )
+        lines.append(
+            "- Descriptive only, not a forward-looking probability -- too small a "
+            "sample to mean much yet. Grows with every resolved trade."
+        )
+        lines.append("")
 
     if ranked:
         lines.append(
@@ -91,6 +124,26 @@ def build_report(
                 meta = f" ({', '.join(meta_parts)})" if meta_parts else ""
                 headline = f"[{item.title}]({item.link})" if item.link else item.title
                 lines.append(f"  - {headline}{meta}")
+
+        lines += [
+            "",
+            "### Recent SEC filings (unverified -- for manual review only)",
+            "",
+            "8-K filings only (material events). Only covers SEC filers -- a US-listed "
+            "or SEC-registered symbol; a non-US ticker will always show none here, which "
+            "is expected, not a failure.",
+            "",
+        ]
+        filings = filings or {}
+        for _screen, sig in ranked:
+            items = filings.get(sig.symbol, [])
+            if not items:
+                lines.append(f"- **{sig.symbol}**: no recent 8-K filings found.")
+                continue
+            lines.append(f"- **{sig.symbol}**:")
+            for item in items:
+                entry = f"{item.form} ({item.filed})"
+                lines.append(f"  - [{entry}]({item.url})" if item.url else f"  - {entry}")
     else:
         lines.append("_No symbol passed both the Shariah screen and the trade-setup filters today._")
 

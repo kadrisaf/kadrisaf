@@ -61,7 +61,24 @@ updated after each live cycle with what worked and what didn't.
    backtested, calibrated model this project doesn't have the historical
    data or infrastructure for. If the key isn't set, this step is skipped
    entirely and the report is unaffected.
-6. **Report** (`report.py`) — ranks the qualifying names and writes a
+6. **Recent SEC filings** (`filings.py`) — for the same qualifying names,
+   fetches recent 8-K filings (material events) from SEC EDGAR's free,
+   no-key API. Same role as the headlines: unscored, supplementary, for
+   manual review. Only covers SEC filers, so a non-US ticker (SIE.DE,
+   AIR.PA, ...) will always show none here -- expected, not a failure.
+7. **Macro snapshot** (`macro.py`) — VIX and the 10-year Treasury yield,
+   shown at the top of every report regardless of whether anything
+   qualified that day. Purely informational: it doesn't filter candidates,
+   change ranking, or affect sizing. Turning "VIX is elevated" into an
+   actual rule would need backtesting this project doesn't have.
+8. **Outcome tracker** (`track_record.py`) — every ranked candidate gets
+   logged to `track_record/candidates.csv`, and on each run any prior
+   candidate whose stop, target, or time-stop has now resolved gets its
+   actual return recorded. The report shows a running win-rate/average-
+   return summary once there's at least one resolved trade. This is the
+   groundwork for ever validating the screen against real results -- not
+   a scoring input, and not a claim of forward-looking edge on its own.
+9. **Report** (`report.py`) — ranks the qualifying names and writes a
    Markdown table plus the list of names excluded and why.
 
 ## Usage
@@ -88,7 +105,8 @@ scheduled trigger, or trigger it manually from the Actions tab
 To enable the optional LLM sentiment tag, add an `ANTHROPIC_API_KEY` repo
 secret (Settings → Secrets and variables → Actions). Without it, the
 workflow runs exactly as before -- headlines still show up, just without
-the sentiment summary.
+the sentiment summary. SEC filings and the macro snapshot need no key --
+both are free, public APIs.
 
 ## Running the tests
 

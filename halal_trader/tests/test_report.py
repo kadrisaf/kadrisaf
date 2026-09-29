@@ -1,6 +1,8 @@
 from datetime import date
 
 from halal_trader.data_provider import NewsItem
+from halal_trader.filings import FilingItem
+from halal_trader.macro import MacroSnapshot
 from halal_trader.report import build_report
 from halal_trader.sentiment import SentimentTag
 from halal_trader.shariah_screen import ScreenResult
@@ -120,6 +122,93 @@ def test_report_shows_sentiment_tag_next_to_its_headlines():
     assert "high confidence" in report
     assert "not a prediction" in report
     assert "A large new contract was announced." in report
+
+
+def test_report_shows_macro_snapshot_when_provided():
+    report = build_report(
+        ranked=[],
+        screened_out=[],
+        not_qualifying=[],
+        skipped=[],
+        macro=MacroSnapshot(vix=18.3, vix_label="normal", ten_year_yield_pct=4.12),
+    )
+
+    assert "VIX: 18.3 (normal)" in report
+    assert "10-year Treasury yield: 4.12%" in report
+    assert "Informational only" in report
+
+
+def test_report_omits_macro_section_when_not_provided():
+    report = build_report(ranked=[], screened_out=[], not_qualifying=[], skipped=[])
+
+    assert "Macro snapshot" not in report
+
+
+def test_report_shows_track_record_summary_when_provided():
+    report = build_report(
+        ranked=[],
+        screened_out=[],
+        not_qualifying=[],
+        skipped=[],
+        track_record_summary={
+            "count": 4,
+            "wins": 3,
+            "win_rate": 75.0,
+            "avg_return_pct": 3.21,
+        },
+    )
+
+    assert "Track record so far" in report
+    assert "4 resolved trades, 3 wins (75.0% win rate)" in report
+    assert "average return +3.21%" in report
+    assert "not a forward-looking probability" in report
+
+
+def test_report_omits_track_record_section_when_not_provided():
+    report = build_report(ranked=[], screened_out=[], not_qualifying=[], skipped=[])
+
+    assert "Track record so far" not in report
+
+
+def test_report_lists_recent_filings_for_ranked_candidates():
+    screen = ScreenResult(symbol="TST", compliant=True)
+    signal = TradeSignal(symbol="TST", qualifies=True, reasons_excluded=[], score=12.3)
+
+    report = build_report(
+        ranked=[(screen, signal)],
+        screened_out=[],
+        not_qualifying=[],
+        skipped=[],
+        news={"TST": [NewsItem(title="TST wins big contract")]},
+        filings={
+            "TST": [
+                FilingItem(
+                    form="8-K",
+                    filed="2026-01-04",
+                    url="https://www.sec.gov/Archives/edgar/data/1/1/tst-8k.htm",
+                )
+            ]
+        },
+    )
+
+    assert "Recent SEC filings" in report
+    assert "[8-K (2026-01-04)](https://www.sec.gov/Archives/edgar/data/1/1/tst-8k.htm)" in report
+
+
+def test_report_flags_missing_filings_without_failing():
+    screen = ScreenResult(symbol="TST", compliant=True)
+    signal = TradeSignal(symbol="TST", qualifies=True, reasons_excluded=[], score=12.3)
+
+    report = build_report(
+        ranked=[(screen, signal)],
+        screened_out=[],
+        not_qualifying=[],
+        skipped=[],
+        news={"TST": [NewsItem(title="TST wins big contract")]},
+        filings={},
+    )
+
+    assert "no recent 8-K filings found" in report
 
 
 def test_report_omits_sentiment_line_when_none_available():
