@@ -20,7 +20,8 @@ instead of crashing the whole run.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, Optional, Protocol
+from datetime import datetime, timezone
+from typing import Dict, List, Optional, Protocol
 
 import pandas as pd
 
@@ -41,12 +42,29 @@ class CompanyFundamentals:
     currency: Optional[str] = None
 
 
+@dataclass
+class NewsItem:
+    """One headline. Purely informational -- not scored, not a signal input.
+    Surfaced so a human can eyeball whether a qualifying setup has an
+    obvious news catalyst behind it before acting on it."""
+    title: str
+    publisher: Optional[str] = None
+    link: Optional[str] = None
+    published: Optional[str] = None  # best-effort "YYYY-MM-DD", may be None
+
+
 class DataProvider(Protocol):
     def get_fundamentals(self, symbol: str) -> CompanyFundamentals: ...
 
     def get_price_history(self, symbol: str, period: str = "6mo") -> pd.DataFrame:
         """Return a DataFrame indexed by date with columns
         Open, High, Low, Close, Volume (ascending date order)."""
+        ...
+
+    def get_recent_news(self, symbol: str, limit: int = 3) -> List[NewsItem]:
+        """Best-effort recent headlines for a symbol. Never raises --
+        returns an empty list on any failure, since this is a supplementary
+        check, not something that should take down the whole report."""
         ...
 
 
@@ -119,6 +137,14 @@ class YFinanceProvider:
         except Exception as exc:
             raise DataUnavailable(f"price history unavailable for {symbol}: {exc}") from exc
 
+    def get_recent_news(self, symbol: str, limit: int = 3) -> List[NewsItem]:
+        try:
+            ticker = self._yf.Ticker(symbol)
+            raw = ticker.news or []
+        except Exception:
+            return []
+        return _parse_news_entries(raw, limit)
+
 
 def _first_present(series: pd.Series, keys):
     for k in keys:
@@ -137,6 +163,63 @@ def _sum_present(series: pd.Series, keys):
     return total if found else None
 
 
+def _parse_news_entries(raw: list, limit: int) -> List[NewsItem]:
+    """Parse yfinance's `Ticker.news` payload into NewsItems. Handles both
+    the newer nested schema (`entry["content"]["title"]`, etc., seen in
+    yfinance >=0.2.4x) and the older flat schema (`entry["title"]`), since
+    this has changed across yfinance versions and isn't itself something we
+    control. Skips anything it can't parse rather than raising -- a
+    malformed headline shouldn't take down the report."""
+    items: List[NewsItem] = []
+    for entry in raw:
+        if len(items) >= limit:
+            break
+        if not isinstance(entry, dict):
+            continue
+
+        content = entry.get("content")
+        if isinstance(content, dict):
+            title = content.get("title")
+            provider = content.get("provider")
+            publisher = provider.get("displayName") if isinstance(provider, dict) else None
+            link = None
+            for url_field in ("canonicalUrl", "clickThroughUrl"):
+                url_obj = content.get(url_field)
+                if isinstance(url_obj, dict) and url_obj.get("url"):
+                    link = url_obj["url"]
+                    break
+            published = _format_published(content.get("pubDate"))
+        else:
+            title = entry.get("title")
+            publisher = entry.get("publisher")
+            link = entry.get("link")
+            published = _format_published(entry.get("providerPublishTime"))
+
+        if title:
+            items.append(NewsItem(title=title, publisher=publisher, link=link, published=published))
+
+    return items[:limit]
+
+
+def _format_published(value) -> Optional[str]:
+    """Best-effort normalize a published timestamp to 'YYYY-MM-DD'. Accepts
+    an ISO-8601 string (newer yfinance) or a Unix timestamp (older
+    yfinance). Returns None rather than raising if it's neither."""
+    if value is None:
+        return None
+    if isinstance(value, (int, float)):
+        try:
+            return datetime.fromtimestamp(value, tz=timezone.utc).strftime("%Y-%m-%d")
+        except (ValueError, OSError):
+            return None
+    if isinstance(value, str):
+        try:
+            return datetime.fromisoformat(value.replace("Z", "+00:00")).strftime("%Y-%m-%d")
+        except ValueError:
+            return value[:10] if len(value) >= 10 else None
+    return None
+
+
 class StaticProvider:
     """In-memory provider for tests and offline snapshots."""
 
@@ -144,9 +227,11 @@ class StaticProvider:
         self,
         fundamentals: Dict[str, CompanyFundamentals],
         histories: Dict[str, pd.DataFrame],
+        news: Optional[Dict[str, List[NewsItem]]] = None,
     ):
         self._fundamentals = fundamentals
         self._histories = histories
+        self._news = news or {}
 
     def get_fundamentals(self, symbol: str) -> CompanyFundamentals:
         try:
@@ -159,3 +244,6 @@ class StaticProvider:
             return self._histories[symbol]
         except KeyError as exc:
             raise DataUnavailable(f"no price history fixture for {symbol}") from exc
+
+    def get_recent_news(self, symbol: str, limit: int = 3) -> List[NewsItem]:
+        return self._news.get(symbol, [])[:limit]

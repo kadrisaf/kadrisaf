@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 from datetime import date, datetime
-from typing import List, Tuple
+from typing import Dict, List, Optional, Tuple
 
+from .data_provider import NewsItem
 from .shariah_screen import ScreenResult
 from .signals import TradeSignal
 
@@ -26,6 +27,7 @@ def build_report(
     not_qualifying: List[Tuple[ScreenResult, TradeSignal]],
     skipped: List[str],
     as_of: date | None = None,
+    news: Optional[Dict[str, List[NewsItem]]] = None,
 ) -> str:
     as_of = as_of or datetime.utcnow().date()
     total = len(ranked) + len(screened_out) + len(not_qualifying) + len(skipped)
@@ -55,6 +57,27 @@ def build_report(
             "size each position so a stop-out is a small, plannable loss, and exit by the "
             "time-stop regardless of price if neither level is hit."
         )
+        lines += [
+            "",
+            "### Recent headlines (unverified -- for manual catalyst review only)",
+            "",
+            "Not scored, not investment advice, and not fact-checked -- purely so you can "
+            "eyeball whether there's an obvious reason behind the move before acting on it. "
+            "Cross-check anything that matters against a primary source.",
+            "",
+        ]
+        news = news or {}
+        for _screen, sig in ranked:
+            items = news.get(sig.symbol, [])
+            if not items:
+                lines.append(f"- **{sig.symbol}**: no recent headlines found -- check manually.")
+                continue
+            lines.append(f"- **{sig.symbol}**:")
+            for item in items:
+                meta_parts = [p for p in (item.publisher, item.published) if p]
+                meta = f" ({', '.join(meta_parts)})" if meta_parts else ""
+                headline = f"[{item.title}]({item.link})" if item.link else item.title
+                lines.append(f"  - {headline}{meta}")
     else:
         lines.append("_No symbol passed both the Shariah screen and the trade-setup filters today._")
 

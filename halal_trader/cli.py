@@ -15,10 +15,10 @@ import argparse
 import csv
 import sys
 from pathlib import Path
-from typing import List, Tuple
+from typing import Dict, List, Tuple
 
 from . import config
-from .data_provider import DataProvider, DataUnavailable, YFinanceProvider
+from .data_provider import DataProvider, DataUnavailable, NewsItem, YFinanceProvider
 from .report import build_report
 from .shariah_screen import ScreenResult, screen_company
 from .signals import TradeSignal, evaluate_signal
@@ -96,8 +96,22 @@ def main(argv: List[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     universe = load_universe(args.universe)
-    ranked, screened_out, not_qualifying, skipped = run(universe, args.top)
-    report = build_report(ranked, screened_out, not_qualifying, skipped)
+    provider = YFinanceProvider()
+    ranked, screened_out, not_qualifying, skipped = run(universe, args.top, provider=provider)
+
+    # Supplementary, non-scoring catalyst check: only for names that already
+    # qualified, so this never affects who ranks -- purely something for a
+    # human to eyeball before acting. A fetch failure degrades to an empty
+    # list rather than breaking the report.
+    news: Dict[str, List[NewsItem]] = {}
+    for _screen, sig in ranked:
+        try:
+            news[sig.symbol] = provider.get_recent_news(sig.symbol)
+        except Exception as exc:
+            print(f"[news] {sig.symbol}: fetch failed: {exc}", file=sys.stderr)
+            news[sig.symbol] = []
+
+    report = build_report(ranked, screened_out, not_qualifying, skipped, news=news)
 
     Path(args.out).write_text(report)
     print(report)

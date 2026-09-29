@@ -1,5 +1,6 @@
 from datetime import date
 
+from halal_trader.data_provider import NewsItem
 from halal_trader.report import build_report
 from halal_trader.shariah_screen import ScreenResult
 from halal_trader.signals import TradeSignal
@@ -48,3 +49,46 @@ def test_report_handles_empty_ranked_list():
     report = build_report(ranked=[], screened_out=[], not_qualifying=[], skipped=[])
 
     assert "No symbol passed" in report
+
+
+def test_report_lists_recent_headlines_for_ranked_candidates():
+    screen = ScreenResult(symbol="TST", compliant=True)
+    signal = TradeSignal(symbol="TST", qualifies=True, reasons_excluded=[], score=12.3)
+
+    report = build_report(
+        ranked=[(screen, signal)],
+        screened_out=[],
+        not_qualifying=[],
+        skipped=[],
+        as_of=date(2026, 1, 5),
+        news={
+            "TST": [
+                NewsItem(
+                    title="TST wins big contract",
+                    publisher="Reuters",
+                    link="https://example.com/tst",
+                    published="2026-01-04",
+                )
+            ]
+        },
+    )
+
+    assert "Recent headlines" in report
+    assert "unverified" in report
+    assert "[TST wins big contract](https://example.com/tst)" in report
+    assert "Reuters, 2026-01-04" in report
+
+
+def test_report_flags_missing_news_without_failing():
+    screen = ScreenResult(symbol="TST", compliant=True)
+    signal = TradeSignal(symbol="TST", qualifies=True, reasons_excluded=[], score=12.3)
+
+    report = build_report(
+        ranked=[(screen, signal)],
+        screened_out=[],
+        not_qualifying=[],
+        skipped=[],
+        news={},
+    )
+
+    assert "no recent headlines found" in report
