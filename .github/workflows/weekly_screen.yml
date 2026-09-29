@@ -23,6 +23,10 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Run screener
+        env:
+          # Optional. If unset, sentiment tagging is skipped entirely and
+          # the report is unaffected -- see halal_trader/sentiment.py.
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
           mkdir -p reports
           python -m halal_trader.cli \

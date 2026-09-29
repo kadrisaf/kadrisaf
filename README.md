@@ -47,7 +47,21 @@ updated after each live cycle with what worked and what didn't.
    (avoids both weak and already-overbought names) and above-average volume
    (confirms real interest). Computes an ATR-based stop-loss and target
    (≥1.5:1 reward:risk) and enforces a 5-trading-day time-stop.
-4. **Report** (`report.py`) — ranks the qualifying names and writes a
+4. **Recent headlines** (`data_provider.py`'s `get_recent_news`) — for
+   every name that qualifies, fetches a few recent headlines (via
+   `yfinance`) so you can eyeball whether there's an obvious catalyst
+   behind the move. Unscored, purely supplementary -- never affects
+   ranking, and degrades to "no headlines found" on any fetch failure.
+5. **Optional LLM sentiment tag** (`sentiment.py`) — if `ANTHROPIC_API_KEY`
+   is set, those same headlines get summarized into a structured tag
+   (sentiment direction, event type, confidence) via the Anthropic API.
+   This is a feature-extraction step over text that's already fetched, not
+   a predictor: it is never combined into the quant score or blended into
+   a "probability of return" -- doing that honestly would need a
+   backtested, calibrated model this project doesn't have the historical
+   data or infrastructure for. If the key isn't set, this step is skipped
+   entirely and the report is unaffected.
+6. **Report** (`report.py`) — ranks the qualifying names and writes a
    Markdown table plus the list of names excluded and why.
 
 ## Usage
@@ -70,6 +84,11 @@ runners.
 Enable GitHub Actions on the repo and it starts running on the next
 scheduled trigger, or trigger it manually from the Actions tab
 ("Run workflow").
+
+To enable the optional LLM sentiment tag, add an `ANTHROPIC_API_KEY` repo
+secret (Settings → Secrets and variables → Actions). Without it, the
+workflow runs exactly as before -- headlines still show up, just without
+the sentiment summary.
 
 ## Running the tests
 

@@ -2,6 +2,7 @@ from datetime import date
 
 from halal_trader.data_provider import NewsItem
 from halal_trader.report import build_report
+from halal_trader.sentiment import SentimentTag
 from halal_trader.shariah_screen import ScreenResult
 from halal_trader.signals import TradeSignal
 
@@ -92,3 +93,47 @@ def test_report_flags_missing_news_without_failing():
     )
 
     assert "no recent headlines found" in report
+
+
+def test_report_shows_sentiment_tag_next_to_its_headlines():
+    screen = ScreenResult(symbol="TST", compliant=True)
+    signal = TradeSignal(symbol="TST", qualifies=True, reasons_excluded=[], score=12.3)
+
+    report = build_report(
+        ranked=[(screen, signal)],
+        screened_out=[],
+        not_qualifying=[],
+        skipped=[],
+        news={"TST": [NewsItem(title="TST wins big contract")]},
+        sentiment={
+            "TST": SentimentTag(
+                sentiment=0.8,
+                event_type="contract_win",
+                confidence="high",
+                rationale="A large new contract was announced.",
+            )
+        },
+    )
+
+    assert "sentiment +0.80" in report
+    assert "contract_win" in report
+    assert "high confidence" in report
+    assert "not a prediction" in report
+    assert "A large new contract was announced." in report
+
+
+def test_report_omits_sentiment_line_when_none_available():
+    screen = ScreenResult(symbol="TST", compliant=True)
+    signal = TradeSignal(symbol="TST", qualifies=True, reasons_excluded=[], score=12.3)
+
+    report = build_report(
+        ranked=[(screen, signal)],
+        screened_out=[],
+        not_qualifying=[],
+        skipped=[],
+        news={"TST": [NewsItem(title="TST wins big contract")]},
+        sentiment={},
+    )
+
+    assert "TST wins big contract" in report
+    assert "*[LLM-generated" not in report

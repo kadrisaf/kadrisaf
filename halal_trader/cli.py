@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import os
 import sys
 from pathlib import Path
 from typing import Dict, List, Tuple
@@ -20,6 +21,7 @@ from typing import Dict, List, Tuple
 from . import config
 from .data_provider import DataProvider, DataUnavailable, NewsItem, YFinanceProvider
 from .report import build_report
+from .sentiment import AnthropicSentimentTagger, SentimentTag
 from .shariah_screen import ScreenResult, screen_company
 from .signals import TradeSignal, evaluate_signal
 
@@ -111,7 +113,34 @@ def main(argv: List[str] | None = None) -> int:
             print(f"[news] {sig.symbol}: fetch failed: {exc}", file=sys.stderr)
             news[sig.symbol] = []
 
-    report = build_report(ranked, screened_out, not_qualifying, skipped, news=news)
+    # Optional LLM sentiment/event tagging over those same headlines -- a
+    # feature-extraction step, not a predictor (see sentiment.py). Skipped
+    # entirely if no API key is configured, so this is opt-in infrastructure,
+    # not a hard dependency of the report.
+    sentiment: Dict[str, SentimentTag] = {}
+    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    tagger = None
+    if api_key and ranked:
+        try:
+            tagger = AnthropicSentimentTagger(api_key=api_key)
+        except Exception as exc:
+            print(f"[sentiment] could not initialize tagger: {exc}", file=sys.stderr)
+    if tagger is not None:
+        for _screen, sig in ranked:
+            headlines = news.get(sig.symbol) or []
+            if not headlines:
+                continue
+            try:
+                tag = tagger.tag(sig.symbol, headlines)
+            except Exception as exc:
+                print(f"[sentiment] {sig.symbol}: tagging failed: {exc}", file=sys.stderr)
+                tag = None
+            if tag is not None:
+                sentiment[sig.symbol] = tag
+    elif ranked and not api_key:
+        print("[sentiment] ANTHROPIC_API_KEY not set -- skipping sentiment tagging", file=sys.stderr)
+
+    report = build_report(ranked, screened_out, not_qualifying, skipped, news=news, sentiment=sentiment)
 
     Path(args.out).write_text(report)
     print(report)

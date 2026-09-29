@@ -6,6 +6,7 @@ from datetime import date, datetime
 from typing import Dict, List, Optional, Tuple
 
 from .data_provider import NewsItem
+from .sentiment import SentimentTag
 from .shariah_screen import ScreenResult
 from .signals import TradeSignal
 
@@ -28,6 +29,7 @@ def build_report(
     skipped: List[str],
     as_of: date | None = None,
     news: Optional[Dict[str, List[NewsItem]]] = None,
+    sentiment: Optional[Dict[str, SentimentTag]] = None,
 ) -> str:
     as_of = as_of or datetime.utcnow().date()
     total = len(ranked) + len(screened_out) + len(not_qualifying) + len(skipped)
@@ -67,12 +69,23 @@ def build_report(
             "",
         ]
         news = news or {}
+        sentiment = sentiment or {}
         for _screen, sig in ranked:
             items = news.get(sig.symbol, [])
             if not items:
                 lines.append(f"- **{sig.symbol}**: no recent headlines found -- check manually.")
                 continue
-            lines.append(f"- **{sig.symbol}**:")
+            tag = sentiment.get(sig.symbol)
+            if tag is not None:
+                lines.append(
+                    f"- **{sig.symbol}** -- sentiment {tag.sentiment:+.2f} "
+                    f"({tag.event_type}, {tag.confidence} confidence) "
+                    f"*[LLM-generated summary of the headlines below, not a "
+                    f"prediction -- not scored, not combined with the quant "
+                    f"signal above]*: {tag.rationale}"
+                )
+            else:
+                lines.append(f"- **{sig.symbol}**:")
             for item in items:
                 meta_parts = [p for p in (item.publisher, item.published) if p]
                 meta = f" ({', '.join(meta_parts)})" if meta_parts else ""
