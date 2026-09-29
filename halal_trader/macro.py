@@ -61,8 +61,14 @@ class YFinanceMacroProvider:
 
         vix = float(vix_hist["Close"].iloc[-1]) if not vix_hist.empty else None
         tnx = float(tnx_hist["Close"].iloc[-1]) if not tnx_hist.empty else None
-        # ^TNX quotes the 10-year yield x10 (e.g. 43.5 means 4.35%).
-        ten_year = tnx / 10 if tnx is not None else None
+        # yfinance's ^TNX close IS the yield in percent directly (verified
+        # against a live run: raw close 5.2 vs. the real 10Y yield of
+        # 5.24% quoted elsewhere the same day) -- earlier code divided by
+        # 10 on the (wrong) assumption that CBOE's classic x10 TNX
+        # convention still applied to this feed. It doesn't; don't
+        # reintroduce that scaling without re-verifying against a second
+        # source first.
+        ten_year = tnx
 
         if vix is None and ten_year is None:
             return None
