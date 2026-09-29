@@ -42,7 +42,7 @@ class SecEdgarFilingsProvider:
     TICKER_MAP_URL = "https://www.sec.gov/files/company_tickers.json"
     SUBMISSIONS_URL = "https://data.sec.gov/submissions/CIK{cik:010d}.json"
 
-    def __init__(self, user_agent: str = "halal_trader research tool (github.com/kadrisaf/kadrisaf)"):
+    def __init__(self, user_agent: str = "halal_trader research tool anyway0760@gmail.com"):
         self._user_agent = user_agent
         self._ticker_to_cik: Optional[Dict[str, int]] = None
 
