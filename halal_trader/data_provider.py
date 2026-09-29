@@ -19,6 +19,7 @@ instead of crashing the whole run.
 
 from __future__ import annotations
 
+import sys
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Dict, List, Optional, Protocol
@@ -141,9 +142,24 @@ class YFinanceProvider:
         try:
             ticker = self._yf.Ticker(symbol)
             raw = ticker.news or []
-        except Exception:
+        except Exception as exc:
+            print(f"[news] {symbol}: ticker.news raised: {exc}", file=sys.stderr)
             return []
-        return _parse_news_entries(raw, limit)
+        items = _parse_news_entries(raw, limit)
+        # Distinguish "genuinely no news" from "got data but couldn't parse
+        # it" -- these look identical from the report alone, and silently
+        # collapsing them made a prior run impossible to diagnose after
+        # the fact.
+        if raw and not items:
+            print(
+                f"[news] {symbol}: got {len(raw)} raw entries but parsed 0 -- "
+                f"schema mismatch, first entry keys: "
+                f"{list(raw[0].keys()) if isinstance(raw[0], dict) else type(raw[0])}",
+                file=sys.stderr,
+            )
+        else:
+            print(f"[news] {symbol}: {len(raw)} raw, {len(items)} parsed", file=sys.stderr)
+        return items
 
 
 def _first_present(series: pd.Series, keys):
