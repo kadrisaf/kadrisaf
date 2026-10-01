@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import json
 import re
+import sys
 from dataclasses import dataclass
 from typing import List, Optional, Protocol
 
@@ -113,7 +114,7 @@ class AnthropicSentimentTagger:
     since this is a bounded classification task over a handful of short
     headlines, not open-ended generation."""
 
-    def __init__(self, api_key: str, model: str = "claude-haiku-4-5-20251001"):
+    def __init__(self, api_key: str, model: str = "claude-haiku-4-5"):
         try:
             import anthropic
         except ImportError as exc:
@@ -136,6 +137,26 @@ class AnthropicSentimentTagger:
                 block.text for block in response.content
                 if getattr(block, "type", None) == "text"
             )
-        except Exception:
+        except Exception as exc:
+            # A prior run produced zero tags across 3 real candidates with
+            # no error output at all -- this was the missing diagnostic.
+            # Likely cause that run: an invalid/unavailable model ID raised
+            # here and was silently swallowed. Never let that happen again
+            # without a trace.
+            print(f"[sentiment] {symbol}: API call raised: {exc}", file=sys.stderr)
             return None
-        return _parse_sentiment_response(text)
+
+        tag = _parse_sentiment_response(text)
+        if tag is None:
+            print(
+                f"[sentiment] {symbol}: got a response but couldn't parse a "
+                f"tag from it -- raw text: {text[:500]!r}",
+                file=sys.stderr,
+            )
+        else:
+            print(
+                f"[sentiment] {symbol}: tagged sentiment={tag.sentiment:+.2f} "
+                f"event_type={tag.event_type} confidence={tag.confidence}",
+                file=sys.stderr,
+            )
+        return tag
