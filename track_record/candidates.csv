@@ -1,2 +1,5 @@
 date_ranked,symbol,entry_close,stop,target,max_holding_days,resolved,resolution_date,exit_price,exit_reason,return_pct
 2026-09-29,NVDA,228.86,219.8252,242.4122,5,False,,,,
+2026-10-01,MU,1065.11,997.4837,1166.5495,5,False,,,,
+2026-10-01,MSFT,512.9,495.1895,539.4658,5,False,,,,
+2026-10-01,DHR,221.55,212.9724,234.4164,5,False,,,,
