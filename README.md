@@ -94,13 +94,16 @@ that blocks that traffic, run it on your own machine, or use the included
 scheduled GitHub Action below, which runs on GitHub's own (unrestricted)
 runners.
 
-### Automated weekly run
+### Automated daily run
 
-`.github/workflows/weekly_screen.yml` runs the screener every Monday
-06:00 UTC on GitHub's hosted runners and commits the report to `reports/`.
-Enable GitHub Actions on the repo and it starts running on the next
-scheduled trigger, or trigger it manually from the Actions tab
-("Run workflow").
+`.github/workflows/weekly_screen.yml` runs the screener every workday
+(Mon-Fri) at 07:00 Europe/Berlin time on GitHub's hosted runners and
+commits the report to `reports/`. GitHub Actions cron is UTC-only and
+doesn't follow DST, so the workflow schedules both the summer and winter
+UTC equivalents and skips whichever one doesn't currently match 07:00
+Berlin time, so it only actually runs once per day. Enable GitHub Actions
+on the repo and it starts running on the next scheduled trigger, or
+trigger it manually from the Actions tab ("Run workflow").
 
 To enable the optional LLM sentiment tag, add an `ANTHROPIC_API_KEY` repo
 secret (Settings → Secrets and variables → Actions). Without it, the
