@@ -47,12 +47,51 @@ history here (git log already has that).
    bought, no position-tracking file was updated, since Trade Republic has
    no API and the user executes manually.
 
+## Open positions (user's real Trade Republic trades, as of Mon 2026-10-05 12:08 Berlin)
+
+The tracker (`track_record/candidates.csv`) only logs screener candidates, NOT
+the user's actual trades -- this section is the source of truth for real ones.
+Values below are euro position values from the app. Time-stops count 5 trading
+days from the actual entry day unless noted.
+
+| Position | Entry | Value now | Since buy | Stop | Target | Time-stop |
+|---|---|---|---|---|---|---|
+| AbbVie (ABBV) | 2 sh @ EUR 235.10, Mon Oct 5 08:19 (EUR 471.20 incl. 1.00 fee) | EUR 466.00 | -1.10% | ~EUR 228.19 | ~EUR 245.47 | Fri Oct 9 |
+| Microsoft (MSFT) | fill/date NOT confirmed (report close 512.90 USD) | EUR 558.77 | +1.41% | 495.19 USD | 539.47 USD | Thu Oct 8 (user-supplied; tracker convention. Earlier, Oct 7, if bought Oct 1) |
+| Micron (MU) | fill/date NOT confirmed (report close 1065.11 USD) | EUR 351.32 | +0.09% | 997.48 USD | 1166.55 USD | Thu Oct 8 (same caveat) |
+
+- AbbVie stop/target are the report's ATR levels (stop 255.09 / target 274.42
+  USD vs 262.82 close) scaled to the EUR fill -- an approximation, check the
+  live EUR quote.
+- The app shows **3 open orders** as of 12:08; their details were not seen
+  (assume stops/limits, don't assume which).
+- **NVDA is closed**: sold Fri Oct 2 16:53, 2.486325 sh @ EUR 210.15, +EUR 20.50
+  (+4.09%). The tracker still lists NVDA rows as open -- they are simulated.
+- The tracker's "1 resolved trade, -3.87%" is a simulated DHR stop-out (Oct 2),
+  not a real trade.
+- Open item: ask for real MSFT/MU fills and dates (Trade Republic -> Activity)
+  to replace the placeholders above.
+
 ## State to know before continuing
 
-- `reports/2026-10-01.md` is the latest report, committed by the Actions bot.
-- `ANTHROPIC_API_KEY` is confirmed valid and funded as of this session --
-  don't assume it's broken again without re-checking logs first.
-- No pending uncommitted changes, no open PR, nothing waiting on review.
+- `reports/2026-10-05.md` is the latest report (141 symbols; qualifiers NVDA,
+  ABBV). Universe was expanded Oct 3 by 54 symbols (commit 4a9a8a9).
+- Workflow now runs Mon-Fri at 07:00 Berlin (commit 8bf8cbd) but the DST guard
+  is **broken**: GitHub delayed the scheduled runs to ~11:00-13:00 Berlin on
+  Oct 2 and the guard (exact hour == 07) skipped them, so only manual
+  `workflow_dispatch` runs produced reports. Proposed fix (not yet approved or
+  made): allow a scheduled run anywhere in 07:00-12:00 Berlin and skip if
+  today's report already exists.
+- `gh` CLI is installed locally and authenticated (fine-grained token, Actions
+  + Contents write). Local runs on this machine need a Brotli workaround for
+  the anthropic SDK; GitHub Actions does not.
+- `ANTHROPIC_API_KEY` Actions secret is confirmed valid and funded -- don't
+  assume it's broken again without re-checking logs first. Oct 2 and Oct 5
+  reports found no headlines (so no sentiment tags) -- unchecked whether that
+  is real or a news-fetch problem.
+- Rel-volume is computed from the latest daily bar, so a screener run after
+  the US open compares partial-day volume to full-day averages and reads
+  falsely low. Trust only pre-open or post-close runs.
 
 ## Suggested first prompt for the new session
 
