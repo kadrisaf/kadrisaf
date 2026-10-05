@@ -98,10 +98,11 @@ runners.
 
 `.github/workflows/weekly_screen.yml` runs the screener every workday
 (Mon-Fri) at 07:00 Europe/Berlin time on GitHub's hosted runners and
-commits the report to `reports/`. GitHub Actions cron is UTC-only and
-doesn't follow DST, so the workflow schedules both the summer and winter
-UTC equivalents and skips whichever one doesn't currently match 07:00
-Berlin time, so it only actually runs once per day. Enable GitHub Actions
+commits the report to `reports/`. GitHub Actions cron is UTC-only,
+ignores DST, and often starts late, so the workflow schedules both the
+summer and winter UTC equivalents; a scheduled run only proceeds if Berlin
+time is 07:00-12:59 and today's report doesn't exist yet, so it produces
+one report per day. Enable GitHub Actions
 on the repo and it starts running on the next scheduled trigger, or
 trigger it manually from the Actions tab ("Run workflow").
 

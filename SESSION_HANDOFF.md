@@ -76,12 +76,13 @@ days from the actual entry day unless noted.
 
 - `reports/2026-10-05.md` is the latest report (141 symbols; qualifiers NVDA,
   ABBV). Universe was expanded Oct 3 by 54 symbols (commit 4a9a8a9).
-- Workflow now runs Mon-Fri at 07:00 Berlin (commit 8bf8cbd) but the DST guard
-  is **broken**: GitHub delayed the scheduled runs to ~11:00-13:00 Berlin on
-  Oct 2 and the guard (exact hour == 07) skipped them, so only manual
-  `workflow_dispatch` runs produced reports. Proposed fix (not yet approved or
-  made): allow a scheduled run anywhere in 07:00-12:00 Berlin and skip if
-  today's report already exists.
+- Workflow runs Mon-Fri, scheduled 07:00 Berlin (commit 8bf8cbd). The first
+  DST guard (exact hour == 07) skipped GitHub's delayed runs on Oct 2; fixed
+  Oct 5: a scheduled run now proceeds if Berlin time is 07:00-12:59 and
+  today's report doesn't exist, plus a concurrency group. Not yet observed
+  in a real scheduled run -- check `gh run list` on Tue Oct 6 (event should
+  read `schedule`, not `workflow_dispatch`). Don't run the screener manually
+  after the US open: it overwrites the day's report with falsely low rel-volume.
 - `gh` CLI is installed locally and authenticated (fine-grained token, Actions
   + Contents write). Local runs on this machine need a Brotli workaround for
   the anthropic SDK; GitHub Actions does not.

@@ -3,16 +3,22 @@ name: Halal watchlist
 on:
   workflow_dispatch: {}
   schedule:
-    # 07:00 Europe/Berlin, Mon-Fri, before European/US markets open.
-    # GitHub Actions cron is UTC-only and ignores DST, so both the CEST
-    # (summer, UTC+2) and CET (winter, UTC+1) equivalents are scheduled;
-    # the `check` job below only lets the one that currently matches
-    # 07:00 Berlin time actually run the screen, so this fires once a day.
+    # Target: once per workday, 07:00 Europe/Berlin, before EU/US markets open.
+    # GitHub Actions cron is UTC-only, ignores DST, and often starts runs
+    # minutes to hours late, so both the CEST (UTC+2) and CET (UTC+1)
+    # equivalents are scheduled and the `check` job decides whether to run:
+    # a scheduled run proceeds only if Berlin time is 07:00-12:59 AND today's
+    # report doesn't exist yet (so the second cron entry never duplicates it).
     - cron: "0 5 * * 1-5"   # 07:00 CEST (late Mar - late Oct)
     - cron: "0 6 * * 1-5"   # 07:00 CET (late Oct - late Mar)
 
 permissions:
   contents: write
+
+# Serialize runs so a late cron entry can't race the first one's commit.
+concurrency:
+  group: halal-watchlist
+  cancel-in-progress: false
 
 jobs:
   check:
@@ -20,15 +26,24 @@ jobs:
     outputs:
       should_run: ${{ steps.guard.outputs.should_run }}
     steps:
-      - name: Only proceed if it's actually 07:00 in Berlin right now
+      - uses: actions/checkout@v4
+
+      - name: Decide whether this run should produce a report
         id: guard
         run: |
-          hour=$(TZ=Europe/Berlin date +%H)
-          if [ "${{ github.event_name }}" != "schedule" ] || [ "$hour" = "07" ]; then
+          hour=$(TZ=Europe/Berlin date +%-H)
+          report="reports/$(date -u +%Y-%m-%d).md"
+          if [ "${{ github.event_name }}" != "schedule" ]; then
             echo "should_run=true" >> "$GITHUB_OUTPUT"
-          else
+            echo "Manual run -- always proceeding."
+          elif [ "$hour" -lt 7 ] || [ "$hour" -gt 12 ]; then
             echo "should_run=false" >> "$GITHUB_OUTPUT"
-            echo "Skipping -- Europe/Berlin local time is ${hour}:00, not 07:00 (this cron entry is for the other half of the year's DST offset)."
+            echo "Skipping -- Berlin time is ${hour}:xx, outside the 07:00-12:59 window."
+          elif [ -f "$report" ]; then
+            echo "should_run=false" >> "$GITHUB_OUTPUT"
+            echo "Skipping -- $report already exists."
+          else
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
           fi
 
   screen:
