@@ -78,8 +78,40 @@ updated after each live cycle with what worked and what didn't.
    return summary once there's at least one resolved trade. This is the
    groundwork for ever validating the screen against real results -- not
    a scoring input, and not a claim of forward-looking edge on its own.
-9. **Report** (`report.py`) — ranks the qualifying names and writes a
-   Markdown table plus the list of names excluded and why.
+9. **Entry-timing and hold-window flags** (`signals.py`, `events.py`) —
+   warnings only, never filters. For each ranked name: distance below the
+   52-week high, and the reward:risk *up to that high* (the table's 1.5:1 is
+   fixed by construction; this is the check against where price has actually
+   been). Plus what is scheduled inside the 5-trading-day hold: macro events
+   from `data/event_calendar.csv` (hand-maintained -- the report says so when
+   the file doesn't reach the end of the window) and each name's next
+   earnings date. This pre-computes parts of ADVISORY_PROTOCOL section 3
+   factors 3 and 4; it does not replace doing them.
+10. **Your real trades** (`trades.py`, `track_record/real_trades.csv`) —
+    hand-maintained log of actual fills. The report lists open positions with
+    the time-stop counted from the *actual* entry day (day 1 = entry day),
+    flags overdue exits, and summarizes closed trades. Unlike the outcome
+    tracker, which simulates every flagged candidate, this is what you
+    actually did.
+11. **Report** (`report.py`) — ranks the qualifying names and writes a
+    Markdown table plus the list of names excluded and why.
+
+Prices are read from completed daily bars only: if Yahoo returns a partial bar
+for a session that is still open, it is dropped (otherwise partial-day volume
+is compared with full-day averages and every name looks illiquid).
+
+### Backtesting the signal
+
+```bash
+python -m halal_trader.backtest --years 3 --out backtests/backtest.md
+```
+
+Replays the signal rules day by day on currently-compliant names with the
+tracker's exit rules (stop first, gap fills at the open, slippage on stop and
+time-stop exits), and compares the filter with entering on every day and with
+other stop/target ATR multiples. Read the caveats it prints: look-ahead in the
+Shariah screen, survivorship in the universe, correlated trades, and the risk
+of re-tuning on the same data.
 
 ## Usage
 
@@ -127,7 +159,12 @@ python -m pytest halal_trader/tests -v
 - **Change the halal rules**: edit `EXCLUDED_SECTOR_KEYWORDS` and the ratio
   thresholds in `halal_trader/config.py`.
 - **Change the trading rules**: edit `SignalParams` in the same file (RSI
-  band, SMA lengths, ATR multiples, liquidity floor, holding period).
+  band, SMA lengths, ATR multiples, liquidity floor, holding period). Run the
+  backtest before and after; don't tune on one table.
+- **Keep the calendars current**: `data/event_calendar.csv` (macro dates) and
+  `NYSE_HOLIDAYS` in `config.py` are hand-maintained.
+- **Log a trade**: add a row to `track_record/real_trades.csv` after each fill
+  (and fill in exit fields when you sell).
 - **Different market/broker data**: implement the `DataProvider` protocol in
   `halal_trader/data_provider.py` for another source and wire it into
   `cli.py`.

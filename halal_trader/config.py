@@ -72,6 +72,9 @@ class SignalParams:
     stop_atr_multiple: float = 1.5
     target_atr_multiple: float = 2.25  # gives a >=1.5:1 reward:risk
     min_avg_dollar_volume: float = 5_000_000  # liquidity floor (20d avg $ vol)
+    # Warning-only thresholds (never disqualify a candidate -- untested):
+    near_high_warn_pct: float = 3.0    # warn if within this % of the 52-week high
+    min_rr_to_high: float = 1.0        # warn if reward:risk up to the 52w high is below this
 
 
 DEFAULT_SIGNAL_PARAMS = SignalParams()
@@ -105,3 +108,20 @@ DEFAULT_UNIVERSE = [
     "CMG", "YUM", "TJX", "ROST",  # consumer
     "ADS.DE", "BAS.DE", "OR.PA", "DTE.DE",  # EU
 ]
+
+
+# ---------------------------------------------------------------------------
+# Trading calendar / execution assumptions
+# ---------------------------------------------------------------------------
+# NYSE full-day closures (Columbus Day is NOT one). Used only to count the
+# 5-trading-day hold window; extend this list when it runs out.
+NYSE_HOLIDAYS = [
+    "2026-01-01", "2026-01-19", "2026-02-16", "2026-04-03", "2026-05-25",
+    "2026-06-19", "2026-07-03", "2026-09-07", "2026-11-26", "2026-12-25",
+    "2027-01-01", "2027-01-18", "2027-02-15", "2027-03-26", "2027-05-31",
+    "2027-06-18", "2027-07-05", "2027-09-06", "2027-11-25", "2027-12-24",
+]
+
+# Assumed worse-than-trigger fill on market-style exits (stop / time-stop),
+# in percent. The tracker applies it; targets are limit orders (no slippage).
+EXIT_SLIPPAGE_PCT = 0.1

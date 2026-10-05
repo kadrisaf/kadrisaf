@@ -50,6 +50,13 @@ Never reason about an asset class in the abstract. Check:
    PPI, shareholder meetings -- and get the actual date right (see rule 4).
 5. **Instrument/halal check** (rule 2).
 
+Since Oct 2026 the report pre-computes the raw inputs for factors 3 and 4
+(distance to the 52-week high, reward:risk up to it, macro events from
+`data/event_calendar.csv`, next earnings date) as warnings. Those are inputs,
+not the check: still verify the calendar covers the window and that the dates
+are right, and record real fills in `track_record/real_trades.csv` so
+time-stops count from the actual entry day.
+
 If step 3 or 4 can't be verified with real data, say so plainly rather than
 substituting a qualitative "consensus is bullish" read as if it were
 equivalent.

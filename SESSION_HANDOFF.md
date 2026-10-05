@@ -72,6 +72,41 @@ days from the actual entry day unless noted.
 - Open item: ask for the real MU fill and date (and the MSFT buy date) (Trade Republic -> Activity)
   to replace the placeholders above.
 
+## Pipeline upgrades made Oct 5 (all in the repo, 84 tests passing)
+
+- **Incomplete-bar fix** (`data_provider.drop_incomplete_bar`): a partial bar for a
+  still-open session is dropped, so mid-session runs no longer read relative
+  volume as 0.1-0.3x. Verified live: a mid-session run reproduced the pre-open
+  qualifiers exactly. (Old note "don't run after the US open" no longer applies.)
+- **52-week-high / resistance warnings** (`signals.py`): `pct_below_52w_high`,
+  `rr_to_52w_high`, warnings for extended entries and targets above overhead
+  resistance. Warnings only -- they never change who qualifies or the ranking.
+- **Hold-window events** (`events.py`, `data/event_calendar.csv`): macro events
+  and each name's next earnings date inside the 5-trading-day hold, plus an NYSE
+  holiday-aware trading-day counter. The calendar is hand-maintained (verified
+  through Dec 2026; PPI after Oct 15 not listed) and the report says when it
+  doesn't reach the end of the window.
+- **Real trades** (`trades.py`, `track_record/real_trades.csv`): the report now
+  lists open positions with time-stops counted from the actual entry day
+  (day 1 = entry day) and a closed-trade summary. Update the CSV after every
+  fill. MU's entry fill/date is still blank.
+- **Tracker realism** (`track_record.simulate_exit`): gap-down through a stop fills
+  at the open; stop/time-stop exits take 0.1% slippage (`config.EXIT_SLIPPAGE_PCT`);
+  targets fill exactly at the target.
+- **Backtest** (`halal_trader/backtest.py`): see `backtests/` for the latest output
+  and its caveats (look-ahead, survivorship, correlation, multiple comparisons).
+  Do not re-tune live parameters from it alone.
+- **Backtest headline (backtests/2026-10-05.md, 130 compliant symbols, 3y):** the
+  filter adds essentially nothing over entering on any day -- live params:
+  signal +0.27% avg / 51.8% win / PF 1.15 vs any-day +0.27% / 50.7% / PF 1.16.
+  First half of signal trades was flat (-0.02%, PF 0.99), second half +0.55%.
+  Live exits: 31% stop, 20% target, 48% time-stop, so realised reward:risk is
+  ~1.07, not 1.5. This is on a survivorship-flattered sample; treat as "no
+  demonstrated edge", not as a reason to re-tune.
+- Still open: no headlines on Oct 2 / Oct 5 runs (news fetch unverified); the
+  fixed R:R of 1.5:1 in the table is by construction (the new flags are the
+  real check).
+
 ## State to know before continuing
 
 - `reports/2026-10-05.md` is the latest report (141 symbols; qualifiers NVDA,
@@ -81,8 +116,7 @@ days from the actual entry day unless noted.
   Oct 5: a scheduled run now proceeds if Berlin time is 07:00-12:59 and
   today's report doesn't exist, plus a concurrency group. Not yet observed
   in a real scheduled run -- check `gh run list` on Tue Oct 6 (event should
-  read `schedule`, not `workflow_dispatch`). Don't run the screener manually
-  after the US open: it overwrites the day's report with falsely low rel-volume.
+  read `schedule`, not `workflow_dispatch`).
 - `gh` CLI is installed locally and authenticated (fine-grained token, Actions
   + Contents write). Local runs on this machine need a Brotli workaround for
   the anthropic SDK; GitHub Actions does not.
@@ -90,9 +124,7 @@ days from the actual entry day unless noted.
   assume it's broken again without re-checking logs first. Oct 2 and Oct 5
   reports found no headlines (so no sentiment tags) -- unchecked whether that
   is real or a news-fetch problem.
-- Rel-volume is computed from the latest daily bar, so a screener run after
-  the US open compares partial-day volume to full-day averages and reads
-  falsely low. Trust only pre-open or post-close runs.
+- Relative volume uses completed daily bars only (partial live bars are dropped).
 
 ## Suggested first prompt for the new session
 

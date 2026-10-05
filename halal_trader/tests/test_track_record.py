@@ -166,3 +166,46 @@ def test_summarize_track_record_returns_none_with_no_resolved_trades():
     records = record_new_candidates([], [_ranked_pair()], as_of=date(2026, 1, 5))
 
     assert summarize_track_record(records) is None
+
+
+def _bars(rows):
+    idx = pd.date_range("2026-01-06", periods=len(rows), freq="B")
+    return pd.DataFrame(rows, index=idx, columns=["Open", "High", "Low", "Close", "Volume"])
+
+
+def test_simulate_exit_gap_down_through_stop_fills_at_the_open():
+    from halal_trader.track_record import simulate_exit
+
+    bars = _bars([[90.0, 91.0, 89.0, 90.0, 1e6]])  # opens below the 95 stop
+    d, price, reason = simulate_exit(bars, stop=95.0, target=110.0, max_days=5)
+    assert (price, reason) == (90.0, "stop")
+
+
+def test_simulate_exit_slippage_hits_stop_and_time_stop_but_not_target():
+    from halal_trader.track_record import simulate_exit
+
+    stop_bars = _bars([[99.0, 100.0, 94.0, 96.0, 1e6]])
+    _, price, reason = simulate_exit(stop_bars, 95.0, 110.0, 5, slippage_pct=1.0)
+    assert reason == "stop" and price == 95.0 * 0.99
+
+    target_bars = _bars([[101.0, 111.0, 100.0, 105.0, 1e6]])
+    _, price, reason = simulate_exit(target_bars, 95.0, 110.0, 5, slippage_pct=1.0)
+    assert reason == "target" and price == 110.0
+
+    time_bars = _bars([[100.0, 101.0, 99.0, 100.0, 1e6]] * 2)
+    _, price, reason = simulate_exit(time_bars, 95.0, 110.0, 2, slippage_pct=1.0)
+    assert reason == "time_stop" and price == 100.0 * 0.99
+
+
+def test_simulate_exit_same_bar_stop_and_target_resolves_as_stop():
+    from halal_trader.track_record import simulate_exit
+
+    bars = _bars([[100.0, 112.0, 94.0, 100.0, 1e6]])
+    assert simulate_exit(bars, 95.0, 110.0, 5)[2] == "stop"
+
+
+def test_simulate_exit_unresolved_returns_none():
+    from halal_trader.track_record import simulate_exit
+
+    bars = _bars([[100.0, 101.0, 99.0, 100.0, 1e6]] * 2)
+    assert simulate_exit(bars, 95.0, 110.0, 5) is None

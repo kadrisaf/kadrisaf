@@ -20,6 +20,8 @@ from datetime import date
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
+import pandas as pd
+
 from .data_provider import DataProvider, DataUnavailable
 from .shariah_screen import ScreenResult
 from .signals import TradeSignal
@@ -131,7 +133,7 @@ def record_new_candidates(
 
 
 def resolve_pending(
-    records: List[TrackedCandidate], provider: DataProvider
+    records: List[TrackedCandidate], provider: DataProvider, slippage_pct: float = 0.0
 ) -> List[TrackedCandidate]:
     """Walk every unresolved row forward through real price history and
     resolve it the same way a human following the plan would: whichever
@@ -152,20 +154,45 @@ def resolve_pending(
         if subsequent.empty:
             continue
 
-        holding_day = 0
-        for idx, row in subsequent.iterrows():
-            holding_day += 1
-            low, high, close = row["Low"], row["High"], row["Close"]
-            if low <= rec.stop:
-                _resolve(rec, idx.date(), rec.stop, "stop")
-                break
-            if high >= rec.target:
-                _resolve(rec, idx.date(), rec.target, "target")
-                break
-            if holding_day >= rec.max_holding_days:
-                _resolve(rec, idx.date(), float(close), "time_stop")
-                break
+        outcome = simulate_exit(
+            subsequent, rec.stop, rec.target, rec.max_holding_days, slippage_pct
+        )
+        if outcome is not None:
+            exit_date, exit_price, reason = outcome
+            _resolve(rec, exit_date, exit_price, reason)
     return records
+
+
+def simulate_exit(
+    subsequent: pd.DataFrame,
+    stop: float,
+    target: float,
+    max_days: int,
+    slippage_pct: float = 0.0,
+) -> Optional[Tuple[date, float, str]]:
+    """Walk bars after entry (day 1 = first bar) and return
+    (exit_date, exit_price, reason), or None if nothing has triggered yet.
+
+    Execution assumptions, chosen to avoid flattering the result:
+    - Stop is checked before target on the same bar.
+    - A gap down through the stop fills at the open, not at the stop.
+    - Stop and time-stop exits are market-style, so `slippage_pct` is taken
+      off the fill. The target is a limit order: filled at the target
+      exactly, with no credit for a gap above it.
+    """
+    slip = slippage_pct / 100.0
+    holding_day = 0
+    for idx, row in subsequent.iterrows():
+        holding_day += 1
+        open_, low, high, close = row["Open"], row["Low"], row["High"], row["Close"]
+        if low <= stop:
+            fill = min(stop, float(open_)) if open_ is not None and not pd.isna(open_) else stop
+            return idx.date(), fill * (1 - slip), "stop"
+        if high >= target:
+            return idx.date(), float(target), "target"
+        if holding_day >= max_days:
+            return idx.date(), float(close) * (1 - slip), "time_stop"
+    return None
 
 
 def _resolve(rec: TrackedCandidate, exit_date: date, exit_price: float, reason: str) -> None:

@@ -21,12 +21,21 @@ from typing import Dict, List, Tuple
 
 from . import config
 from .data_provider import DataProvider, DataUnavailable, NewsItem, YFinanceProvider
+from .events import (
+    HoldContext,
+    calendar_covers,
+    events_in_window,
+    hold_window,
+    load_event_calendar,
+    next_earnings_date,
+)
 from .filings import FilingItem, SecEdgarFilingsProvider
 from .macro import YFinanceMacroProvider
 from .report import build_report
 from .sentiment import AnthropicSentimentTagger, SentimentTag
 from .shariah_screen import ScreenResult, screen_company
 from .signals import TradeSignal, evaluate_signal
+from .trades import load_trades, open_positions, summarize_trades
 from .track_record import (
     load_track_record,
     record_new_candidates,
@@ -84,7 +93,7 @@ def run(
             continue
 
         try:
-            history = provider.get_price_history(symbol, period="6mo")
+            history = provider.get_price_history(symbol, period="1y")
         except DataUnavailable as exc:
             print(f"[skip] {symbol}: {exc}", file=sys.stderr)
             skipped.append(symbol)
@@ -109,6 +118,14 @@ def main(argv: List[str] | None = None) -> int:
         "--track-record",
         default="track_record/candidates.csv",
         help="CSV path for the outcome tracker (see track_record.py)",
+    )
+    parser.add_argument(
+        "--trades", default="track_record/real_trades.csv",
+        help="CSV of your real trades (see trades.py)",
+    )
+    parser.add_argument(
+        "--events", default="data/event_calendar.csv",
+        help="CSV of scheduled macro events (date,event)",
     )
     args = parser.parse_args(argv)
 
@@ -176,12 +193,29 @@ def main(argv: List[str] | None = None) -> int:
     except Exception as exc:
         print(f"[macro] fetch failed: {exc}", file=sys.stderr)
 
+    # Hold-window context: scheduled macro events and each ranked name's next
+    # earnings date, for a hypothetical entry on the report date. Warnings only.
+    window = hold_window(as_of, config.DEFAULT_SIGNAL_PARAMS.max_holding_days)
+    calendar = load_event_calendar(args.events)
+    hold = HoldContext(
+        window=window,
+        macro_events=events_in_window(calendar, window),
+        calendar_ok=calendar_covers(calendar, window),
+        earnings={sig.symbol: next_earnings_date(sig.symbol, as_of) for _s, sig in ranked},
+    )
+
+    # The user's REAL trades (hand-maintained CSV): open positions with
+    # time-stops from the actual entry day, plus a closed-trade summary.
+    real_trades = load_trades(args.trades)
+    positions = open_positions(real_trades, as_of)
+    real_summary = summarize_trades(real_trades)
+
     # Outcome tracker: resolve anything from prior runs that's now due,
     # record today's candidates, and persist. See track_record.py for why
     # this exists -- it's the groundwork for ever validating this screen
     # against real results, not a scoring input.
     track_records = load_track_record(args.track_record)
-    resolve_pending(track_records, provider)
+    resolve_pending(track_records, provider, slippage_pct=config.EXIT_SLIPPAGE_PCT)
     record_new_candidates(track_records, ranked, as_of)
     save_track_record(args.track_record, track_records)
     track_record_summary = summarize_track_record(track_records)
@@ -197,6 +231,9 @@ def main(argv: List[str] | None = None) -> int:
         filings=filings,
         macro=macro,
         track_record_summary=track_record_summary,
+        hold=hold,
+        positions=positions,
+        real_summary=real_summary,
     )
 
     Path(args.out).write_text(report)

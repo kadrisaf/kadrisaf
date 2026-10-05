@@ -77,3 +77,37 @@ def test_insufficient_history_is_reported_explicitly():
 
     assert signal.qualifies is False
     assert "insufficient price history" in signal.reasons_excluded[0]
+
+
+def test_52w_high_context_is_reported_and_extended_entry_warns():
+    df = _make_ohlcv(UPTREND_PATTERN, last_volume_multiple=2.2)
+
+    signal = evaluate_signal("TST", df)
+
+    assert signal.qualifies is True  # warnings never disqualify
+    assert signal.high_52w == round(float(df["High"].max()), 4)
+    assert signal.pct_below_52w_high is not None and signal.pct_below_52w_high < 3.0
+    assert any("extended" in w for w in signal.warnings)
+
+
+def test_far_below_high_has_no_extended_warning_and_full_reward_risk():
+    df = _make_ohlcv(UPTREND_PATTERN, last_volume_multiple=2.2)
+    df.loc[df.index[20], "High"] = df["Close"].iloc[-1] * 1.5  # old spike far above
+
+    signal = evaluate_signal("TST", df)
+
+    assert signal.qualifies is True
+    assert not any("extended" in w for w in signal.warnings)
+    assert signal.pct_below_52w_high > 20
+    assert signal.rr_to_52w_high == signal.reward_risk  # target sits below the high
+
+
+def test_target_above_overhead_resistance_warns():
+    df = _make_ohlcv(UPTREND_PATTERN, last_volume_multiple=2.2)
+    last = df["Close"].iloc[-1]
+    df.loc[df.index[30], "High"] = last * 1.004  # resistance barely above price
+
+    signal = evaluate_signal("TST", df)
+
+    assert signal.rr_to_52w_high is not None and signal.rr_to_52w_high < 1.0
+    assert any("before the" in w and "reward:risk" in w for w in signal.warnings)

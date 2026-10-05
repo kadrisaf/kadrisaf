@@ -27,6 +27,29 @@ from typing import Dict, List, Optional, Protocol
 import pandas as pd
 
 
+def drop_incomplete_bar(history: pd.DataFrame, now: Optional[datetime] = None) -> pd.DataFrame:
+    """Drop the last bar if it is today's and the exchange session is still
+    open (or just closed). Yahoo serves a partial bar for the live session;
+    comparing its partial volume against 20 FULL-day averages reads falsely
+    low (e.g. 0.1x relative volume 20 minutes after the open), and a partial
+    close can mis-resolve a tracked trade. The cutoff is a conservative
+    session-close + buffer by timezone: US 16:15, elsewhere 17:45."""
+    if history is None or history.empty:
+        return history
+    tz = getattr(history.index, "tz", None)
+    if tz is None:
+        return history
+    now_local = (now or datetime.now(timezone.utc)).astimezone(tz)
+    last = history.index[-1]
+    if last.date() != now_local.date():
+        return history
+    name = str(tz)
+    cutoff_h, cutoff_m = (16, 15) if name.startswith("America/") else (17, 45)
+    if (now_local.hour, now_local.minute) < (cutoff_h, cutoff_m):
+        return history.iloc[:-1]
+    return history
+
+
 class DataUnavailable(Exception):
     """Raised when fundamentals or price history can't be fetched for a symbol."""
 
@@ -132,7 +155,10 @@ class YFinanceProvider:
             hist = ticker.history(period=period, auto_adjust=True)
             if hist is None or hist.empty:
                 raise DataUnavailable(f"no price history for {symbol}")
-            return hist[["Open", "High", "Low", "Close", "Volume"]]
+            hist = drop_incomplete_bar(hist[["Open", "High", "Low", "Close", "Volume"]])
+            if hist.empty:
+                raise DataUnavailable(f"no completed price bars for {symbol}")
+            return hist
         except DataUnavailable:
             raise
         except Exception as exc:

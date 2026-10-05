@@ -12,7 +12,7 @@ future returns; short-term trading carries a real risk of loss.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import List, Optional
 
 import numpy as np
@@ -38,6 +38,10 @@ class TradeSignal:
     reward_risk: Optional[float] = None
     score: Optional[float] = None
     max_holding_days: int = 5
+    high_52w: Optional[float] = None
+    pct_below_52w_high: Optional[float] = None
+    rr_to_52w_high: Optional[float] = None
+    warnings: List[str] = field(default_factory=list)
 
 
 def _rsi(close: pd.Series, period: int) -> pd.Series:
@@ -129,6 +133,30 @@ def evaluate_signal(
         reward = target - last_close
         reward_risk = reward / risk if risk > 0 else None
 
+    # -- Warning-only context (never disqualifies; thresholds are untested) --
+    # 52-week high from the available bars (needs ~1y of history; with less
+    # it is just the high of what we have, and the warning text says so).
+    warnings: List[str] = []
+    lookback = history["High"].iloc[-252:]
+    high_52w = float(lookback.max())
+    pct_below_high = round((high_52w - last_close) / high_52w * 100, 2) if high_52w else None
+    rr_to_high = None
+    if stop_loss is not None and target is not None and high_52w > last_close:
+        risk_amt = last_close - stop_loss
+        if risk_amt > 0:
+            rr_to_high = (min(target, high_52w) - last_close) / risk_amt
+    partial = len(lookback) < 240
+    basis = f"{len(lookback)}-bar high" if partial else "52-week high"
+    if pct_below_high is not None and pct_below_high < params.near_high_warn_pct:
+        warnings.append(
+            f"entry is extended: within {pct_below_high:.1f}% of the {basis} ({high_52w:.2f})"
+        )
+    if rr_to_high is not None and rr_to_high < params.min_rr_to_high:
+        warnings.append(
+            f"only {rr_to_high:.2f}:1 reward:risk before the {basis} ({high_52w:.2f}) -- "
+            f"the mechanical target sits above overhead resistance"
+        )
+
     score = None
     if not reasons:
         # Simple composite: trend strength + momentum position + volume
@@ -156,4 +184,8 @@ def evaluate_signal(
         reward_risk=round(float(reward_risk), 2) if reward_risk is not None else None,
         score=score,
         max_holding_days=params.max_holding_days,
+        high_52w=round(high_52w, 4),
+        pct_below_52w_high=round(pct_below_high, 2) if pct_below_high is not None else None,
+        rr_to_52w_high=round(rr_to_high, 2) if rr_to_high is not None else None,
+        warnings=warnings,
     )

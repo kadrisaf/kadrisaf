@@ -226,3 +226,78 @@ def test_report_omits_sentiment_line_when_none_available():
 
     assert "TST wins big contract" in report
     assert "*[LLM-generated" not in report
+
+
+def _ranked_one(symbol="TST", **kw):
+    sig = TradeSignal(
+        symbol=symbol, qualifies=True, reasons_excluded=[], last_close=100.0, rsi=55.0,
+        relative_volume=1.5, stop_loss=95.0, target=107.5, reward_risk=1.5, score=10.0,
+        high_52w=101.0, pct_below_52w_high=1.0, rr_to_52w_high=0.2,
+        warnings=["entry is extended: within 1.0% of the 52-week high (101.00)"], **kw,
+    )
+    return [(ScreenResult(symbol=symbol, compliant=True), sig)]
+
+
+def _hold(window_start=date(2026, 10, 5), **kw):
+    from halal_trader.events import HoldContext, MacroEvent, hold_window
+
+    base = dict(
+        window=hold_window(window_start, 5),
+        macro_events=[MacroEvent(date(2026, 10, 7), "FOMC minutes 14:00 ET")],
+        calendar_ok=True,
+        earnings={"TST": date(2026, 10, 8)},
+    )
+    base.update(kw)
+    return HoldContext(**base)
+
+
+def test_report_shows_entry_timing_flags_and_hold_window_events():
+    report = build_report(
+        _ranked_one(), [], [], [], as_of=date(2026, 10, 5), hold=_hold()
+    )
+
+    assert "Entry-timing flags" in report
+    assert "1.0% below its high of 101.0" in report
+    assert "entry is extended" in report
+    assert "2026-10-05 -> 2026-10-09" in report
+    assert "2026-10-07 (Wed): FOMC minutes" in report
+    assert "reports earnings on 2026-10-08 -- INSIDE the hold window" in report
+
+
+def test_report_says_calendar_is_stale_instead_of_claiming_no_events():
+    report = build_report(
+        _ranked_one(), [], [], [], as_of=date(2026, 10, 5),
+        hold=_hold(macro_events=[], calendar_ok=False, earnings={"TST": None}),
+    )
+
+    assert "does not reach the end of this window" in report
+    assert "earnings date unavailable" in report
+    assert "No scheduled macro events" not in report
+
+
+def test_report_shows_open_positions_with_time_stop_and_overdue():
+    from halal_trader.trades import Trade, open_positions
+
+    trades = [
+        Trade("ABBV", "open", date(2026, 10, 5), 235.10, 2, "EUR", 228.19, 245.47),
+        Trade("MU", "open", currency="EUR"),
+    ]
+    live = build_report([], [], [], [], as_of=date(2026, 10, 6), positions=open_positions(trades, date(2026, 10, 6)))
+    assert "## Your open positions" in live
+    assert "2026-10-05 @ 235.1 EUR" in live and "2026-10-09" in live
+    assert "entry unconfirmed" in live and "unknown (no entry date)" in live
+
+    late = build_report([], [], [], [], as_of=date(2026, 10, 12), positions=open_positions(trades, date(2026, 10, 12)))
+    assert "OVERDUE -- exit now" in late
+
+
+def test_report_flags_ranked_symbol_already_held_and_shows_real_summary():
+    from halal_trader.trades import Trade, open_positions
+
+    held = open_positions([Trade("TST", "open", date(2026, 10, 5), 100.0, 1, "EUR")], date(2026, 10, 5))
+    report = build_report(
+        _ranked_one(), [], [], [], as_of=date(2026, 10, 5), positions=held,
+        real_summary={"count": 2, "wins": 2, "win_rate": 100.0, "avg_return_pct": 3.52},
+    )
+    assert "already in your open positions" in report
+    assert "## Your real trades so far" in report and "+3.52%" in report
