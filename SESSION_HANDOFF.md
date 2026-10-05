@@ -57,7 +57,7 @@ days from the actual entry day unless noted.
 | Position | Entry | Value now | Since buy | Stop | Target | Time-stop |
 |---|---|---|---|---|---|---|
 | AbbVie (ABBV) | 2 sh @ EUR 235.10, Mon Oct 5 08:19 (EUR 471.20 incl. 1.00 fee) | EUR 466.00 | -1.10% | ~EUR 228.19 | ~EUR 245.47 | Fri Oct 9 |
-| Microsoft (MSFT) | fill/date NOT confirmed (report close 512.90 USD) | EUR 558.77 | +1.41% | 495.19 USD | 539.47 USD | Thu Oct 8 (user-supplied; tracker convention. Earlier, Oct 7, if bought Oct 1) |
+| Microsoft (MSFT) | **CLOSED** Mon Oct 5 16:47: sold 1.209987 sh @ EUR 469.65, received EUR 567.27 (after 1.00 fee) | -- | +2.95% / +EUR 16.27 | -- | -- | -- (sold before the Oct 8 time-stop; implied cost basis ~EUR 551.00, buy date still unknown) |
 | Micron (MU) | fill/date NOT confirmed (report close 1065.11 USD) | EUR 351.32 | +0.09% | 997.48 USD | 1166.55 USD | Thu Oct 8 (same caveat) |
 
 - AbbVie stop/target are the report's ATR levels (stop 255.09 / target 274.42
@@ -69,7 +69,7 @@ days from the actual entry day unless noted.
   (+4.09%). The tracker still lists NVDA rows as open -- they are simulated.
 - The tracker's "1 resolved trade, -3.87%" is a simulated DHR stop-out (Oct 2),
   not a real trade.
-- Open item: ask for real MSFT/MU fills and dates (Trade Republic -> Activity)
+- Open item: ask for the real MU fill and date (and the MSFT buy date) (Trade Republic -> Activity)
   to replace the placeholders above.
 
 ## State to know before continuing
