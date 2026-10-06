@@ -1,6 +1,6 @@
 symbol,entry_date,entry_price,quantity,currency,stop,target,status,exit_date,exit_price,realized_pct,notes
-ABBV,2026-10-05,235.10,2,EUR,228.19,245.47,open,,,,"Stop/target = report ATR levels (USD 255.09/274.42 on 262.82 close) scaled to the EUR fill; entry price excludes the 1.00 EUR fee"
-MU,,,,EUR,,,open,,,,"Entry fill and date unconfirmed (Trade Republic Activity tab). Report levels were 997.48 / 1166.55 USD"
-NVDA,,,2.486325,EUR,,,closed,2026-10-02,210.15,4.09,"Sold Oct 2 16:53; app-reported +4.09% / +20.50 EUR; buy date/price unknown"
-MSFT,,,1.209987,EUR,,,closed,2026-10-05,469.65,2.95,"Sold Oct 5 16:47; app-reported +2.95% / +16.27 EUR; implied cost basis ~551 EUR; buy date unknown"
-STX,2026-10-06,,,EUR,,,open,,,,"~EUR 600 bought (position EUR 596.97 / -0.67% at 08:09 implies ~601 cost incl. 1.00 fee). Entry date inferred from the 08:09 screenshot; exact fill/quantity not seen. Report levels: stop 803.65 / target 1012.26 USD (-9.4% / +14.1% from the 887.09 close)"
+ABBV,2026-10-05,235.10,2,EUR,228.19,245.47,open,,,,Stop/target = report ATR levels (USD 255.09/274.42 on 262.82 close) scaled to the EUR fill; entry price excludes the 1.00 EUR fee
+MU,2026-10-01,952.10,0.367608,EUR,891.66,1042.77,open,,,,"Bought Oct 1 07:48, EUR 351.00 total incl 1.00 fee. Stop/target = Oct 1 report levels (997.48/1166.55 USD vs 1065.11 close, -6.35%/+9.52%) scaled to the EUR fill"
+NVDA,,,2.486325,EUR,,,closed,2026-10-02,210.15,4.09,Sold Oct 2 16:53; app-reported +4.09% / +20.50 EUR; buy date/price unknown
+MSFT,,,1.209987,EUR,,,closed,2026-10-05,469.65,2.95,Sold Oct 5 16:47; app-reported +2.95% / +16.27 EUR; implied cost basis ~551 EUR; buy date unknown
+STX,2026-10-06,,,EUR,,,open,,,,~EUR 600 bought (position EUR 596.97 / -0.67% at 08:09 implies ~601 cost incl. 1.00 fee). Entry date inferred from the 08:09 screenshot; exact fill/quantity not seen. Report levels: stop 803.65 / target 1012.26 USD (-9.4% / +14.1% from the 887.09 close)

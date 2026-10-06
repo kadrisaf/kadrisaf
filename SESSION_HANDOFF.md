@@ -59,7 +59,7 @@ days from the actual entry day unless noted.
 | AbbVie (ABBV) | 2 sh @ EUR 235.10, Mon Oct 5 08:19 (EUR 471.20 incl. 1.00 fee) | EUR 472.80 | +0.34% | ~EUR 228.19 | ~EUR 245.47 | Fri Oct 9 |
 | Microsoft (MSFT) | **CLOSED** Mon Oct 5 16:47: sold 1.209987 sh @ EUR 469.65, received EUR 567.27 (after 1.00 fee) | -- | +2.95% / +EUR 16.27 | -- | -- | -- (sold before the Oct 8 time-stop; implied cost basis ~EUR 551.00, buy date still unknown) |
 | Seagate (STX) | ~EUR 600 bought Tue Oct 6 (date inferred from the 08:09 screenshot; fill/qty unseen; ~EUR 601 cost incl. fee) | EUR 586.36 | -2.44% | 803.65 USD (-9.4%) | 1012.26 USD (+14.1%) | Mon Oct 12 |
-| Micron (MU) | fill/date NOT confirmed (report close 1065.11 USD) | EUR 345.99 | -1.43% | 997.48 USD | 1166.55 USD | Thu Oct 8 (same caveat) |
+| Micron (MU) | 0.367608 sh @ EUR 952.10, Thu Oct 1 07:48 (EUR 351.00 incl. 1.00 fee) | EUR 345.99 | -1.43% | ~EUR 891.66 | ~EUR 1042.77 | **Tue Oct 7 -- TOMORROW** |
 
 - AbbVie stop/target are the report's ATR levels (stop 255.09 / target 274.42
   USD vs 262.82 close) scaled to the EUR fill -- an approximation, check the
@@ -70,8 +70,6 @@ days from the actual entry day unless noted.
   (+4.09%). The tracker still lists NVDA rows as open -- they are simulated.
 - The tracker's "1 resolved trade, -3.87%" is a simulated DHR stop-out (Oct 2),
   not a real trade.
-- Open item: ask for the real MU fill and date (and the MSFT buy date) (Trade Republic -> Activity)
-  to replace the placeholders above.
 
 ## Pipeline upgrades made Oct 5 (all in the repo, 84 tests passing)
 
