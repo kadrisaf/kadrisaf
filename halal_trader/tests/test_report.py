@@ -307,7 +307,10 @@ def test_report_prints_order_tickets_with_formula_sizing_and_risk_warning():
     report = build_report(_ranked_one(), [], [], [], as_of=date(2026, 10, 6))
 
     assert "Order tickets (mechanical sizing -- NOT a recommendation" in report
-    # entry 100, stop 95 -> (1400*2%)/5 = 5.6 shares, 560 value
-    assert "| **TST** | 5.6 | 560.00" in report
+    # entry 100, stop 95 -> (portfolio * 2%) / 5 per share
+    from halal_trader import config as _cfg
+
+    shares = round(_cfg.PORTFOLIO_EUR * _cfg.RISK_PCT_PER_TRADE / 100 / 5, 4)
+    assert f"| **TST** | {shares} | {shares * 100:.2f}" in report
     assert "Risk setting" not in report  # 2% is inside the conventional band
     assert "place the stop immediately" in report
