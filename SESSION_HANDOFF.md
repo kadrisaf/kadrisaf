@@ -58,6 +58,7 @@ days from the actual entry day unless noted.
 |---|---|---|---|---|---|---|
 | AbbVie (ABBV) | 2 sh @ EUR 235.10, Mon Oct 5 08:19 (EUR 471.20 incl. 1.00 fee) | EUR 466.00 | -1.10% | ~EUR 228.19 | ~EUR 245.47 | Fri Oct 9 |
 | Microsoft (MSFT) | **CLOSED** Mon Oct 5 16:47: sold 1.209987 sh @ EUR 469.65, received EUR 567.27 (after 1.00 fee) | -- | +2.95% / +EUR 16.27 | -- | -- | -- (sold before the Oct 8 time-stop; implied cost basis ~EUR 551.00, buy date still unknown) |
+| Seagate (STX) | ~EUR 600 bought Tue Oct 6 (date inferred from the 08:09 screenshot; fill/qty unseen; ~EUR 601 cost incl. fee) | EUR 596.97 | -0.67% | 803.65 USD (-9.4%) | 1012.26 USD (+14.1%) | Mon Oct 12 |
 | Micron (MU) | fill/date NOT confirmed (report close 1065.11 USD) | EUR 351.32 | +0.09% | 997.48 USD | 1166.55 USD | Thu Oct 8 (same caveat) |
 
 - AbbVie stop/target are the report's ATR levels (stop 255.09 / target 274.42
