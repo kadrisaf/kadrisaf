@@ -138,6 +138,10 @@ days from the actual entry day unless noted.
   (FINSABER, Alpha-Illusion arXiv 2605.16895) show claimed LLM-agent returns
   collapse out-of-sample (FinMem +23% -> -22%); decision recorded: LLM stays
   an information-extraction layer (sentiment tags), never a predictor.
+- **Post-shock whipsaw warning added Oct 6** (after the STX loss): any single-day
+  move beyond +/-8% in the last 5 bars puts a warning on the candidate.
+  Verified: it fires on STX as of Oct 5 ("-10.2% day within the last 5
+  sessions"). Warning-only, like all flags.
 - Still open: the fixed R:R of 1.5:1 in the table is by construction (the
   entry-timing flags are the real check); MU entry fill/date and STX fill/qty
   still unconfirmed in track_record/real_trades.csv.

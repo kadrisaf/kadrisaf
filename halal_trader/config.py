@@ -79,6 +79,8 @@ class SignalParams:
     # Warning-only thresholds (never disqualify a candidate -- untested):
     near_high_warn_pct: float = 3.0    # warn if within this % of the 52-week high
     min_rr_to_high: float = 1.0        # warn if reward:risk up to the 52w high is below this
+    shock_lookback_days: int = 5       # post-shock warning: look back this many bars
+    shock_move_pct: float = 8.0        # ...flag any single-day move beyond +/- this %
 
 
 DEFAULT_SIGNAL_PARAMS = SignalParams()

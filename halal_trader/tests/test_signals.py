@@ -111,3 +111,21 @@ def test_target_above_overhead_resistance_warns():
 
     assert signal.rr_to_52w_high is not None and signal.rr_to_52w_high < 1.0
     assert any("before the" in w and "reward:risk" in w for w in signal.warnings)
+
+
+def test_post_shock_whipsaw_warns_after_a_big_single_day_move():
+    df = _make_ohlcv(UPTREND_PATTERN, last_volume_multiple=2.2)
+    i = df.index[-3]  # a -10% day two sessions ago
+    df.loc[i:, ["Open", "High", "Low", "Close"]] *= 0.90
+
+    signal = evaluate_signal("TST", df)
+
+    assert any("post-shock whipsaw" in w for w in signal.warnings)
+
+
+def test_no_whipsaw_warning_on_a_calm_tape():
+    df = _make_ohlcv(UPTREND_PATTERN, last_volume_multiple=2.2)
+
+    signal = evaluate_signal("TST", df)
+
+    assert not any("post-shock" in w for w in signal.warnings)
