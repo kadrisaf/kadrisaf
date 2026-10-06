@@ -45,8 +45,10 @@ updated after each live cycle with what worked and what didn't.
    only those in a confirmed short-term uptrend (price > 20-day SMA >
    50-day SMA, 20-day SMA rising) with RSI(14) in a healthy 45–65 band
    (avoids both weak and already-overbought names) and above-average volume
-   (confirms real interest). Computes an ATR-based stop-loss and target
-   (≥1.5:1 reward:risk) and enforces a 5-trading-day time-stop.
+   (confirms real interest), and skips any name with a single-day move
+   beyond ±8% in the last 5 sessions (post-shock whipsaw filter). Computes
+   an ATR-based stop-loss and target (≥1.5:1 reward:risk) and enforces a
+   5-trading-day time-stop.
 4. **Recent headlines** (`data_provider.py`'s `get_recent_news`) — for
    every name that qualifies, fetches a few recent headlines (via
    `yfinance`) so you can eyeball whether there's an obvious catalyst

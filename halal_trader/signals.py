@@ -125,6 +125,20 @@ def evaluate_signal(
             f"relative volume {rv} < {params.min_relative_volume}x (no confirming interest)"
         )
 
+    # Post-shock whipsaw: a single-day move beyond +/-shock_move_pct within
+    # the lookback DISQUALIFIES the name (hardened from a warning to a filter
+    # on 2026-10-06, user decision, after STX: -10%, +5%, -6% in three
+    # sessions -- every trend/volume condition was genuinely true, but the
+    # name was mid-whipsaw. Untested for edge; revisit with the backtest.)
+    recent = close.pct_change().iloc[-params.shock_lookback_days:] * 100
+    if len(recent):
+        worst = recent.iloc[recent.abs().values.argmax()]
+        if abs(worst) >= params.shock_move_pct:
+            reasons.append(
+                f"post-shock whipsaw: a {worst:+.1f}% day within the last "
+                f"{params.shock_lookback_days} sessions (limit +/-{params.shock_move_pct:g}%)"
+            )
+
     stop_loss = target = reward_risk = None
     if atr and not pd.isna(atr):
         stop_loss = last_close - params.stop_atr_multiple * atr
@@ -145,20 +159,6 @@ def evaluate_signal(
         risk_amt = last_close - stop_loss
         if risk_amt > 0:
             rr_to_high = (min(target, high_52w) - last_close) / risk_amt
-    # Post-shock whipsaw: a single-day move beyond +/-shock_move_pct within
-    # the lookback means headline-driven swings the size of the stop are
-    # live right now (added 2026-10-06 after STX: -10%, +5%, -6% in three
-    # sessions -- the trend/volume filters were all genuinely true, but the
-    # name was mid-whipsaw and the report never said so).
-    recent = close.pct_change().iloc[-params.shock_lookback_days:] * 100
-    if len(recent):
-        worst = recent.iloc[recent.abs().values.argmax()]
-        if abs(worst) >= params.shock_move_pct:
-            warnings.append(
-                f"post-shock whipsaw: a {worst:+.1f}% day within the last "
-                f"{params.shock_lookback_days} sessions -- expect swings the size of the stop"
-            )
-
     partial = len(lookback) < 240
     basis = f"{len(lookback)}-bar high" if partial else "52-week high"
     if pct_below_high is not None and pct_below_high < params.near_high_warn_pct:
