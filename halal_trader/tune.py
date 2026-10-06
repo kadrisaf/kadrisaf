@@ -90,7 +90,7 @@ def feature_frame(df: pd.DataFrame) -> pd.DataFrame:
             "rel_vol": volume / avg_vol,
             "dollar_vol": close.rolling(20).mean() * avg_vol,
             "atr": _atr(df, p.atr_period),
-            "shock": close.pct_change().abs().rolling(p.shock_lookback_days).max() * 100,
+            "shock": close.pct_change().rolling(p.shock_lookback_days).min() * 100,
         },
         index=df.index,
     )
@@ -112,7 +112,7 @@ def trades_for(
         & (feats["rel_vol"] >= ps.min_rel_vol)
         & (feats["dollar_vol"] >= p.min_avg_dollar_volume)
         & feats["atr"].notna()
-        & (feats["shock"] < p.shock_move_pct)
+        & (feats["shock"] > -p.shock_move_pct)
     )
     out: List[float] = []
     busy_until = -1

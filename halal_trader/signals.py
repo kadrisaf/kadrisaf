@@ -132,11 +132,11 @@ def evaluate_signal(
     # name was mid-whipsaw. Untested for edge; revisit with the backtest.)
     recent = close.pct_change().iloc[-params.shock_lookback_days:] * 100
     if len(recent):
-        worst = recent.iloc[recent.abs().values.argmax()]
-        if abs(worst) >= params.shock_move_pct:
+        worst = float(recent.min())  # drops only -- an up-spike doesn't disqualify (user decision Oct 6)
+        if worst <= -params.shock_move_pct:
             reasons.append(
                 f"post-shock whipsaw: a {worst:+.1f}% day within the last "
-                f"{params.shock_lookback_days} sessions (limit +/-{params.shock_move_pct:g}%)"
+                f"{params.shock_lookback_days} sessions (limit -{params.shock_move_pct:g}%)"
             )
 
     stop_loss = target = reward_risk = None

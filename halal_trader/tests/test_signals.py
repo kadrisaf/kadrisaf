@@ -131,3 +131,13 @@ def test_no_whipsaw_exclusion_on_a_calm_tape():
 
     assert not any("post-shock" in r for r in signal.reasons_excluded)
     assert signal.qualifies is True
+
+
+def test_up_spike_does_not_disqualify():
+    df = _make_ohlcv(UPTREND_PATTERN, last_volume_multiple=2.2)
+    i = df.index[-3]  # a +12% day two sessions ago
+    df.loc[i:, ["Open", "High", "Low", "Close"]] *= 1.12
+
+    signal = evaluate_signal("TST", df)
+
+    assert not any("post-shock" in r for r in signal.reasons_excluded)

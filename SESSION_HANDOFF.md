@@ -138,6 +138,10 @@ days from the actual entry day unless noted.
   (FINSABER, Alpha-Illusion arXiv 2605.16895) show claimed LLM-agent returns
   collapse out-of-sample (FinMem +23% -> -22%); decision recorded: LLM stays
   an information-extraction layer (sentiment tags), never a predictor.
+- **Whipsaw filter narrowed to drops only** (user decision, Oct 6 evening): only a
+  day <= -8% in the last 5 bars disqualifies; up-spikes don't. CEG and FTG.VI
+  (FIT GROUP AG, Vienna -- EUR 63M micro-cap, expect liquidity-floor failures)
+  added to the universe on user request.
 - **Post-shock whipsaw filter added Oct 6** (after the STX loss; hardened from
   warning to DISQUALIFIER the same day, user decision): any single-day move
   beyond +/-8% in the last 5 bars removes the candidate. Verified: STX as of
