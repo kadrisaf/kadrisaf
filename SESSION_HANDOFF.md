@@ -130,6 +130,14 @@ days from the actual entry day unless noted.
   mechanical sizing (PORTFOLIO_EUR=1400, RISK_PCT_PER_TRADE=2.0 -- user first
   asked 5%, lowered to 2% same day; >2% triggers a warning banner). Formula
   output only; the entry decision stays with the user, per the protocol.
+- **Oct 6 final additions (102 tests passing):** "Do today" section (mechanical
+  clock-rule actions per open position: SELL-today / overdue / last-day
+  warnings, missing-stop flags, today's scheduled events) and news/sentiment/
+  filings coverage extended to HELD names, not only the day's qualifiers.
+  Researched "LLM trading agents" before building: contamination-free studies
+  (FINSABER, Alpha-Illusion arXiv 2605.16895) show claimed LLM-agent returns
+  collapse out-of-sample (FinMem +23% -> -22%); decision recorded: LLM stays
+  an information-extraction layer (sentiment tags), never a predictor.
 - Still open: the fixed R:R of 1.5:1 in the table is by construction (the
   entry-timing flags are the real check); MU entry fill/date and STX fill/qty
   still unconfirmed in track_record/real_trades.csv.

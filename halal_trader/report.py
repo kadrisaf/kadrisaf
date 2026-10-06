@@ -97,6 +97,9 @@ def build_report(
         )
         lines.append("")
 
+    if positions:
+        lines += _do_today_lines(positions, as_of, hold)
+
     if real_summary is not None:
         lines.append("## Your real trades so far")
         lines.append("")
@@ -158,22 +161,22 @@ def build_report(
         ]
         news = news or {}
         sentiment = sentiment or {}
-        for _screen, sig in ranked:
-            items = news.get(sig.symbol, [])
+        for sym in _coverage_symbols(ranked, positions):
+            items = news.get(sym, [])
             if not items:
-                lines.append(f"- **{sig.symbol}**: no recent headlines found -- check manually.")
+                lines.append(f"- **{sym}**: no recent headlines found -- check manually.")
                 continue
-            tag = sentiment.get(sig.symbol)
+            tag = sentiment.get(sym)
             if tag is not None:
                 lines.append(
-                    f"- **{sig.symbol}** -- sentiment {tag.sentiment:+.2f} "
+                    f"- **{sym}** -- sentiment {tag.sentiment:+.2f} "
                     f"({tag.event_type}, {tag.confidence} confidence) "
                     f"*[LLM-generated summary of the headlines below, not a "
                     f"prediction -- not scored, not combined with the quant "
                     f"signal above]*: {tag.rationale}"
                 )
             else:
-                lines.append(f"- **{sig.symbol}**:")
+                lines.append(f"- **{sym}**:")
             for item in items:
                 meta_parts = [p for p in (item.publisher, item.published) if p]
                 meta = f" ({', '.join(meta_parts)})" if meta_parts else ""
@@ -190,12 +193,12 @@ def build_report(
             "",
         ]
         filings = filings or {}
-        for _screen, sig in ranked:
-            items = filings.get(sig.symbol, [])
+        for sym in _coverage_symbols(ranked, positions):
+            items = filings.get(sym, [])
             if not items:
-                lines.append(f"- **{sig.symbol}**: no recent 8-K filings found.")
+                lines.append(f"- **{sym}**: no recent 8-K filings found.")
                 continue
-            lines.append(f"- **{sig.symbol}**:")
+            lines.append(f"- **{sym}**:")
             for item in items:
                 entry = f"{item.form} ({item.filed})"
                 lines.append(f"  - [{entry}]({item.url})" if item.url else f"  - {entry}")
@@ -342,5 +345,65 @@ def _order_ticket_lines(ranked) -> List[str]:
         "If entered: place the stop immediately, place the target as a sell limit if your "
         "broker allows both, and sell at market on the exit-by day if neither has triggered. "
         "Update `PORTFOLIO_EUR` in `halal_trader/config.py` when the account value changes.",
+    ]
+    return lines
+
+
+def _coverage_symbols(ranked, positions) -> List[str]:
+    """Ranked names first, then held names that didn't rank -- the news,
+    sentiment and filings sections cover what you own, not only what
+    qualifies today."""
+    syms = [sig.symbol for _s, sig in ranked]
+    for p in positions or []:
+        if p["trade"].symbol not in syms:
+            syms.append(p["trade"].symbol)
+    return syms
+
+
+def _do_today_lines(positions, as_of, hold) -> List[str]:
+    """The plan's required actions for TODAY, read mechanically from the
+    open positions. Only time/structure rules appear here -- price-level
+    exits are the standing stop/target orders' job."""
+    lines = ["## Do today", ""]
+    for p in positions:
+        t = p["trade"]
+        if p["time_stop"] is None:
+            lines.append(
+                f"- **{t.symbol}: entry date missing** -- add it to "
+                f"`track_record/real_trades.csv`, the 5-day clock can't run without it."
+            )
+        elif p["overdue"]:
+            lines.append(
+                f"- **SELL {t.symbol} TODAY -- time-stop was {p['time_stop'].isoformat()} "
+                f"and is OVERDUE.** The plan does not hold past it at any price."
+            )
+        elif p["days_left"] == 0:
+            lines.append(
+                f"- **SELL {t.symbol} TODAY -- time-stop is today "
+                f"({p['time_stop'].isoformat()}).** Exit at market before the close, "
+                f"whatever the price."
+            )
+        elif p["days_left"] == 1:
+            lines.append(
+                f"- **{t.symbol}: last full day tomorrow** ({p['time_stop'].isoformat()}) "
+                f"-- plan the exit now, don't leave it to the final minutes."
+            )
+        else:
+            lines.append(
+                f"- {t.symbol}: no action required ({p['days_left']} trading days to "
+                f"{p['time_stop'].isoformat()})."
+            )
+        if t.stop is None:
+            lines.append(
+                f"  - ⚠ no stop recorded for {t.symbol} -- place one and record it."
+            )
+    todays = [e for e in (hold.macro_events if hold else []) if e.day == as_of]
+    for e in todays:
+        lines.append(f"- ⚠ Scheduled today: {e.name}.")
+    lines += [
+        "",
+        "Price-level exits (stop / target) are standing orders, not daily decisions -- "
+        "place them when the position is opened. This section only reads the clock.",
+        "",
     ]
     return lines

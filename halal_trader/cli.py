@@ -135,17 +135,25 @@ def main(argv: List[str] | None = None) -> int:
     provider = YFinanceProvider()
     ranked, screened_out, not_qualifying, skipped = run(universe, args.top, provider=provider)
 
-    # Supplementary, non-scoring catalyst check: only for names that already
-    # qualified, so this never affects who ranks -- purely something for a
-    # human to eyeball before acting. A fetch failure degrades to an empty
-    # list rather than breaking the report.
+    # The user's REAL trades (hand-maintained CSV): open positions with
+    # time-stops from the actual entry day, plus a closed-trade summary.
+    real_trades = load_trades(args.trades)
+    positions = open_positions(real_trades, as_of)
+    real_summary = summarize_trades(real_trades)
+
+    # Supplementary, non-scoring catalyst check -- for the names that
+    # qualified AND the names currently held (you need news on what you own
+    # at least as much as on what you might buy). Never affects ranking; a
+    # fetch failure degrades to an empty list rather than breaking the report.
+    coverage = [sig.symbol for _s, sig in ranked]
+    coverage += [p["trade"].symbol for p in positions if p["trade"].symbol not in coverage]
     news: Dict[str, List[NewsItem]] = {}
-    for _screen, sig in ranked:
+    for symbol in coverage:
         try:
-            news[sig.symbol] = provider.get_recent_news(sig.symbol)
+            news[symbol] = provider.get_recent_news(symbol)
         except Exception as exc:
-            print(f"[news] {sig.symbol}: fetch failed: {exc}", file=sys.stderr)
-            news[sig.symbol] = []
+            print(f"[news] {symbol}: fetch failed: {exc}", file=sys.stderr)
+            news[symbol] = []
 
     # Optional LLM sentiment/event tagging over those same headlines -- a
     # feature-extraction step, not a predictor (see sentiment.py). Skipped
@@ -154,37 +162,37 @@ def main(argv: List[str] | None = None) -> int:
     sentiment: Dict[str, SentimentTag] = {}
     api_key = os.environ.get("ANTHROPIC_API_KEY")
     tagger = None
-    if api_key and ranked:
+    if api_key and coverage:
         try:
             tagger = AnthropicSentimentTagger(api_key=api_key)
         except Exception as exc:
             print(f"[sentiment] could not initialize tagger: {exc}", file=sys.stderr)
     if tagger is not None:
-        for _screen, sig in ranked:
-            headlines = news.get(sig.symbol) or []
+        for symbol in coverage:
+            headlines = news.get(symbol) or []
             if not headlines:
                 continue
             try:
-                tag = tagger.tag(sig.symbol, headlines)
+                tag = tagger.tag(symbol, headlines)
             except Exception as exc:
-                print(f"[sentiment] {sig.symbol}: tagging failed: {exc}", file=sys.stderr)
+                print(f"[sentiment] {symbol}: tagging failed: {exc}", file=sys.stderr)
                 tag = None
             if tag is not None:
-                sentiment[sig.symbol] = tag
-    elif ranked and not api_key:
+                sentiment[symbol] = tag
+    elif coverage and not api_key:
         print("[sentiment] ANTHROPIC_API_KEY not set -- skipping sentiment tagging", file=sys.stderr)
 
-    # Recent SEC 8-K filings for the same ranked names -- free, no key,
+    # Recent SEC 8-K filings for the same covered names -- free, no key,
     # only covers SEC filers (see filings.py). Same supplementary,
     # never-fails-the-run pattern as the news fetch above.
     filings_provider = SecEdgarFilingsProvider()
     filings: Dict[str, List[FilingItem]] = {}
-    for _screen, sig in ranked:
+    for symbol in coverage:
         try:
-            filings[sig.symbol] = filings_provider.get_recent_filings(sig.symbol)
+            filings[symbol] = filings_provider.get_recent_filings(symbol)
         except Exception as exc:
-            print(f"[filings] {sig.symbol}: fetch failed: {exc}", file=sys.stderr)
-            filings[sig.symbol] = []
+            print(f"[filings] {symbol}: fetch failed: {exc}", file=sys.stderr)
+            filings[symbol] = []
 
     # Macro snapshot -- always attempted, independent of whether anything
     # qualified today. Informational only; see macro.py.
@@ -204,12 +212,6 @@ def main(argv: List[str] | None = None) -> int:
         calendar_ok=calendar_covers(calendar, window),
         earnings={sig.symbol: next_earnings_date(sig.symbol, as_of) for _s, sig in ranked},
     )
-
-    # The user's REAL trades (hand-maintained CSV): open positions with
-    # time-stops from the actual entry day, plus a closed-trade summary.
-    real_trades = load_trades(args.trades)
-    positions = open_positions(real_trades, as_of)
-    real_summary = summarize_trades(real_trades)
 
     # Correlation between each candidate and the open positions: "this is
     # partly the same bet you already hold". Warning only.

@@ -93,18 +93,24 @@ updated after each live cycle with what worked and what didn't.
     flags overdue exits, and summarizes closed trades. Unlike the outcome
     tracker, which simulates every flagged candidate, this is what you
     actually did.
-11. **Order tickets** (`risk.py`, `report.py`) — mechanical sizing per
+11. **"Do today"** (`report.py`) — the plan's required actions for the day,
+    read mechanically from `real_trades.csv`: sell-by-today / overdue
+    time-stop flags, "last full day tomorrow" warnings, missing stops,
+    scheduled events landing today. Clock rules only -- price exits are the
+    standing orders' job. News/sentiment/filings cover held names too, not
+    only the day's qualifiers.
+12. **Order tickets** (`risk.py`, `report.py`) — mechanical sizing per
     qualifier: `(PORTFOLIO_EUR x RISK_PCT_PER_TRADE%) / (entry - stop)`,
     capped at the portfolio (never leverage), with the euro at-stop /
     at-target amounts and the exit-by rule filled in. Every number is
     formula output; whether to enter is still the reader's decision. Set
     `PORTFOLIO_EUR` / `RISK_PCT_PER_TRADE` in `config.py`; a risk setting
     above 2% gets a warning banner in the report.
-12. **Portfolio-risk warnings** (`risk.py`) — flags a candidate whose daily
+13. **Portfolio-risk warnings** (`risk.py`) — flags a candidate whose daily
     returns correlate >= 0.7 with an open position (partly the same bet, not
     diversification) and notes the fixed-fee drag at a typical position size.
     Warnings only.
-13. **Report** (`report.py`) — ranks the qualifying names and writes a
+14. **Report** (`report.py`) — ranks the qualifying names and writes a
     Markdown table plus the list of names excluded and why.
 
 Prices are read from completed daily bars only: if Yahoo returns a partial bar

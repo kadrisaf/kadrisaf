@@ -314,3 +314,45 @@ def test_report_prints_order_tickets_with_formula_sizing_and_risk_warning():
     assert f"| **TST** | {shares} | {shares * 100:.2f}" in report
     assert "Risk setting" not in report  # 2% is inside the conventional band
     assert "place the stop immediately" in report
+
+
+def test_do_today_section_reads_the_clock_per_position():
+    from halal_trader.trades import Trade, open_positions
+
+    trades = [
+        Trade("DUE", "open", date(2026, 10, 2), 100.0, 1, "EUR", 95.0, 110.0),   # day 5 = Oct 8
+        Trade("LATE", "open", date(2026, 9, 28), 100.0, 1, "EUR", 95.0, 110.0),  # overdue
+        Trade("SOON", "open", date(2026, 10, 5), 100.0, 1, "EUR"),               # day 5 = Oct 9, no stop
+        Trade("NOENTRY", "open", currency="EUR"),
+    ]
+    report = build_report(
+        [], [], [], [], as_of=date(2026, 10, 8),
+        positions=open_positions(trades, date(2026, 10, 8)),
+        hold=_hold(window_start=date(2026, 10, 8),
+                   macro_events=[], calendar_ok=True, earnings={}),
+    )
+
+    assert "## Do today" in report
+    assert "SELL DUE TODAY -- time-stop is today (2026-10-08)" in report
+    assert "SELL LATE TODAY -- time-stop was 2026-10-02 and is OVERDUE" in report
+    assert "SOON: last full day tomorrow" in report
+    assert "no stop recorded for SOON" in report
+    assert "NOENTRY: entry date missing" in report
+
+
+def test_news_and_filings_cover_held_names_not_only_ranked():
+    from halal_trader.trades import Trade, open_positions
+
+    held = open_positions(
+        [Trade("HELD", "open", date(2026, 10, 5), 100.0, 1, "EUR", 95.0, 110.0)],
+        date(2026, 10, 6),
+    )
+    report = build_report(
+        _ranked_one("RANKED"), [], [], [], as_of=date(2026, 10, 6),
+        positions=held,
+        news={"RANKED": [], "HELD": [NewsItem(title="Held co. wins contract")]},
+        filings={"HELD": [FilingItem(form="8-K", filed="2026-10-05", url=None)]},
+    )
+
+    assert "Held co. wins contract" in report
+    assert "- **HELD**:\n  - 8-K (2026-10-05)" in report
