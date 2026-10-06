@@ -69,8 +69,12 @@ class SignalParams:
     slow_sma: int = 50
     min_relative_volume: float = 1.2   # today's volume vs its 20d average
     atr_period: int = 14
-    stop_atr_multiple: float = 1.5
-    target_atr_multiple: float = 2.25  # gives a >=1.5:1 reward:risk
+    # Widened from 1.5/2.25 on 2026-10-06: ahead in both halves of the
+    # split-sample test and the full-period grid (see backtests/2026-10-06-*).
+    # Same 1.5:1 ratio; a 2.0-ATR stop loses more per share when hit, so the
+    # sizing formula must set the position size (same euro risk = fewer shares).
+    stop_atr_multiple: float = 2.0
+    target_atr_multiple: float = 3.0   # gives a >=1.5:1 reward:risk
     min_avg_dollar_volume: float = 5_000_000  # liquidity floor (20d avg $ vol)
     # Warning-only thresholds (never disqualify a candidate -- untested):
     near_high_warn_pct: float = 3.0    # warn if within this % of the 52-week high

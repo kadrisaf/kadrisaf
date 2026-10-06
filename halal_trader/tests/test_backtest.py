@@ -51,11 +51,13 @@ def test_backtest_splits_default_cell_trades_by_own_200d_regime():
     df = _make_ohlcv(UPTREND_PATTERN, n=320, last_volume_multiple=1.0)
     df.loc[df.index[::3], "Volume"] = 2_000_000.0  # every 3rd day has confirming volume
     provider = StaticProvider({"UP": _fund("UP")}, {"UP": df})
+    from halal_trader.config import DEFAULT_SIGNAL_PARAMS as P
 
-    result = run_backtest(["UP"], years=1, provider=provider, grid=[(1.5, 2.25)], warmup=210)
+    live_cell = (P.stop_atr_multiple, P.target_atr_multiple)
+    result = run_backtest(["UP"], years=1, provider=provider, grid=[live_cell], warmup=210)
 
     regimes = result["regimes"]
-    n_signal = result["signal"][(1.5, 2.25)]["n"]
+    n_signal = result["signal"][live_cell]["n"]
     n_regime = sum(s["n"] for s in regimes.values() if s)
     assert n_regime == n_signal  # every trade lands in exactly one regime
     assert result["spy_regimes"] == {}  # no SPY fixture -> split skipped, not wrong

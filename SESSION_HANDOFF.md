@@ -122,6 +122,12 @@ days from the actual entry day unless noted.
   protocol's hard 5-day max, which is the user's call to change, not a tuning
   knob). RSI band and vol threshold barely matter. LIVE train +0.023% vs valid
   +0.391% also shows strong period dependence -- treat all levels as noisy.
+- **Live params switched 2026-10-06** (user decision): stop/target ATR multiples
+  1.5/2.25 -> 2.0/3.0 after three converging tests (full grid, 80-cell tune,
+  focused split-sample: validate +0.455%/PF 1.23 vs +0.391%/1.21). Applies to
+  FUTURE reports only -- open positions keep the levels they were entered with
+  (real_trades.csv is unchanged). Wider stop = bigger per-share loss when hit:
+  the sizing formula must set the share count.
 - Still open: the fixed R:R of 1.5:1 in the table is by construction (the
   entry-timing flags are the real check); MU entry fill/date and STX fill/qty
   still unconfirmed in track_record/real_trades.csv.
