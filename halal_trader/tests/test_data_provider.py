@@ -116,3 +116,34 @@ def test_drop_incomplete_bar_uses_later_cutoff_outside_the_us_and_ignores_naive(
     assert len(drop_incomplete_bar(hist, at_1700)) == 1
     naive = pd.DataFrame({"Close": [1.0, 2.0]}, index=pd.date_range("2026-10-01", periods=2))
     assert len(drop_incomplete_bar(naive)) == 2
+
+
+RSS_XML = b"""<?xml version="1.0"?><rss version="2.0"><channel>
+<item><title>AbbVie beats on Q3</title><link>https://example.com/a</link>
+<pubDate>Mon, 05 Oct 2026 20:45:04 +0000</pubDate></item>
+<item><title>Second headline</title><link>https://example.com/b</link>
+<pubDate>not a date</pubDate></item>
+<item><title>Third</title></item>
+<item><title>Fourth beyond limit</title></item>
+</channel></rss>"""
+
+
+def test_rss_fallback_parses_titles_links_and_dates():
+    from halal_trader.data_provider import _rss_news
+
+    items = _rss_news("ABBV", limit=3, fetch=lambda s: RSS_XML)
+
+    assert [i.title for i in items] == ["AbbVie beats on Q3", "Second headline", "Third"]
+    assert items[0].link == "https://example.com/a"
+    assert items[0].published == "2026-10-05"
+    assert items[1].published is None  # bad date degrades, doesn't raise
+    assert all(i.publisher == "Yahoo Finance RSS" for i in items)
+
+
+def test_rss_fallback_failure_returns_empty():
+    from halal_trader.data_provider import _rss_news
+
+    def boom(sym):
+        raise RuntimeError("blocked")
+
+    assert _rss_news("ABBV", fetch=boom) == []

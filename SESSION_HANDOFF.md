@@ -112,9 +112,19 @@ days from the actual entry day unless noted.
   +0.24%/PF 1.13; SPY split similar, n=71 below). No regime rule added -- there
   is nothing there to encode. Expectancy/parameter tuning on split-sample
   validation remains NOT done (category 2 from the Oct 6 discussion).
-- Still open: no headlines on Oct 2 / Oct 5 runs (news fetch unverified); the
-  fixed R:R of 1.5:1 in the table is by construction (the new flags are the
-  real check).
+- **Oct 6 later additions (96 tests passing):** (a) news fixed -- `ticker.news`
+  returns 0 items since early Oct; `_rss_news` now falls back to Yahoo's RSS
+  feed (verified live: STX headlines flowing again, incl. an Oct 6 "higher
+  bid" story). (b) Split-sample tune (backtests/2026-10-06-tune.md, 80-cell
+  grid, train = first half / validate = second half): every top train winner
+  shares 2.0/3.0 ATR + 8-day hold; best validates +0.496%/trade vs LIVE
+  +0.391% -- a ~0.1pp margin, NOT adopted (small, and an 8d hold violates the
+  protocol's hard 5-day max, which is the user's call to change, not a tuning
+  knob). RSI band and vol threshold barely matter. LIVE train +0.023% vs valid
+  +0.391% also shows strong period dependence -- treat all levels as noisy.
+- Still open: the fixed R:R of 1.5:1 in the table is by construction (the
+  entry-timing flags are the real check); MU entry fill/date and STX fill/qty
+  still unconfirmed in track_record/real_trades.csv.
 
 ## State to know before continuing
 

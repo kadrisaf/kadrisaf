@@ -185,7 +185,59 @@ class YFinanceProvider:
             )
         else:
             print(f"[news] {symbol}: {len(raw)} raw, {len(items)} parsed", file=sys.stderr)
+        if not items:
+            # ticker.news has been returning 0 items since early Oct 2026;
+            # Yahoo's RSS headline feed still works, so fall back to it.
+            items = _rss_news(symbol, limit)
+            print(f"[news] {symbol}: RSS fallback -> {len(items)} items", file=sys.stderr)
         return items
+
+
+def _rss_news(symbol: str, limit: int = 3, fetch=None) -> List["NewsItem"]:
+    """Fallback headlines from Yahoo Finance's RSS feed (free, no key).
+    Never raises -- returns [] on any failure. `fetch` is injectable for
+    tests: fetch(symbol) -> bytes of RSS XML."""
+    try:
+        if fetch is None:
+            import requests
+
+            def fetch(sym):
+                r = requests.get(
+                    "https://feeds.finance.yahoo.com/rss/2.0/headline",
+                    params={"s": sym, "region": "US", "lang": "en-US"},
+                    headers={"User-Agent": "halal-trader/1.0"},
+                    timeout=10,
+                )
+                r.raise_for_status()
+                return r.content
+
+        import xml.etree.ElementTree as ET
+        from email.utils import parsedate_to_datetime
+
+        items: List[NewsItem] = []
+        for node in ET.fromstring(fetch(symbol)).findall(".//item")[:limit]:
+            title = node.findtext("title")
+            if not title:
+                continue
+            published = None
+            pub = node.findtext("pubDate")
+            if pub:
+                try:
+                    published = parsedate_to_datetime(pub).strftime("%Y-%m-%d")
+                except (ValueError, TypeError):
+                    published = None
+            items.append(
+                NewsItem(
+                    title=title,
+                    publisher="Yahoo Finance RSS",
+                    link=node.findtext("link") or None,
+                    published=published,
+                )
+            )
+        return items
+    except Exception as exc:
+        print(f"[news] {symbol}: RSS fallback failed: {exc}", file=sys.stderr)
+        return []
 
 
 def _first_present(series: pd.Series, keys):

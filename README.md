@@ -119,6 +119,13 @@ Read the caveats it prints: look-ahead in the
 Shariah screen, survivorship in the universe, correlated trades, and the risk
 of re-tuning on the same data.
 
+`python -m halal_trader.tune` runs the split-sample parameter test: a grid
+over RSI band / volume threshold / stop-target multiples / hold length is
+tuned on the first half of history and validated on the second half, with the
+live defaults always shown. Its output states the decision rule (adopt nothing
+without a clear out-of-sample margin). Headlines fall back to Yahoo's RSS feed
+when `ticker.news` returns nothing.
+
 ## Usage
 
 ```bash
