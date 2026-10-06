@@ -104,6 +104,14 @@ days from the actual entry day unless noted.
   Live exits: 31% stop, 20% target, 48% time-stop, so realised reward:risk is
   ~1.07, not 1.5. This is on a survivorship-flattered sample; treat as "no
   demonstrated edge", not as a reason to re-tune.
+- **Oct 6 additions (risk.py + regime split, 90 tests passing):** report now flags
+  >=0.7 return correlation between a candidate and open positions (live: STX/MU
+  +0.70 -- user holds both) and the fixed-fee cost drag (0.40% at EUR 500).
+  Backtest regime split (backtests/2026-10-06-regime.md): trend regime at entry
+  does NOT separate outcomes (above own 200d SMA +0.28%/PF 1.16 vs below
+  +0.24%/PF 1.13; SPY split similar, n=71 below). No regime rule added -- there
+  is nothing there to encode. Expectancy/parameter tuning on split-sample
+  validation remains NOT done (category 2 from the Oct 6 discussion).
 - Still open: no headlines on Oct 2 / Oct 5 runs (news fetch unverified); the
   fixed R:R of 1.5:1 in the table is by construction (the new flags are the
   real check).

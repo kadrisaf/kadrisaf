@@ -11,6 +11,7 @@ from .filings import FilingItem
 from .macro import MacroSnapshot
 from .sentiment import SentimentTag
 from .shariah_screen import ScreenResult
+from .risk import cost_drag_pct
 from .signals import TradeSignal
 from .trades import Trade, trade_return_pct
 
@@ -40,6 +41,7 @@ def build_report(
     hold: Optional[HoldContext] = None,
     positions: Optional[List[dict]] = None,
     real_summary: Optional[dict] = None,
+    correlations: Optional[Dict[str, List[tuple]]] = None,
 ) -> str:
     as_of = as_of or datetime.utcnow().date()
     total = len(ranked) + len(screened_out) + len(not_qualifying) + len(skipped)
@@ -143,7 +145,7 @@ def build_report(
             "size each position so a stop-out is a small, plannable loss, and exit by the "
             "time-stop regardless of price if neither level is hit."
         )
-        lines += _entry_context_lines(ranked, hold, positions, as_of)
+        lines += _entry_context_lines(ranked, hold, positions, as_of, correlations)
         lines += [
             "",
             "### Recent headlines (unverified -- for manual catalyst review only)",
@@ -226,7 +228,7 @@ def build_report(
     return "\n".join(lines) + "\n"
 
 
-def _entry_context_lines(ranked, hold, positions, as_of) -> List[str]:
+def _entry_context_lines(ranked, hold, positions, as_of, correlations=None) -> List[str]:
     """Entry-timing flags (52-week-high distance / overhead resistance) and
     what is scheduled inside the hold window. Warnings only: nothing here
     changes ranking, and none of it replaces ADVISORY_PROTOCOL section 3."""
@@ -240,12 +242,25 @@ def _entry_context_lines(ranked, hold, positions, as_of) -> List[str]:
             bits.append(f"reward:risk up to that high = {sig.rr_to_52w_high:.2f}:1")
         if sig.symbol in held:
             bits.append("**already in your open positions**")
+        for pos_sym, corr in (correlations or {}).get(sig.symbol, []):
+            bits.append(
+                f"⚠ {corr:+.2f} return correlation with your open {pos_sym} position "
+                f"-- partly the same bet, not diversification"
+            )
         lines.append(f"- **{sig.symbol}**: " + "; ".join(bits) if bits else f"- **{sig.symbol}**: no data")
         for w in sig.warnings:
             lines.append(f"  - ⚠ {w}")
     lines.append(
         "- The reward:risk in the main table is fixed by construction (always 1.5:1); "
         "this section is the only place it is compared with where price has actually been."
+    )
+    from . import config as _cfg
+
+    lines.append(
+        f"- Cost note: at a {_cfg.TYPICAL_POSITION_EUR:.0f} EUR position, round-trip fees "
+        f"({2 * _cfg.FEE_PER_ORDER_EUR:.0f} EUR) are {cost_drag_pct():.2f}% -- the backtested "
+        f"average per trade was +0.27%, so fees alone consume most of it at this size. "
+        f"Smaller positions make that worse."
     )
 
     if hold is not None and hold.window:

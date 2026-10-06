@@ -32,6 +32,7 @@ from .events import (
 from .filings import FilingItem, SecEdgarFilingsProvider
 from .macro import YFinanceMacroProvider
 from .report import build_report
+from .risk import correlation_flags
 from .sentiment import AnthropicSentimentTagger, SentimentTag
 from .shariah_screen import ScreenResult, screen_company
 from .signals import TradeSignal, evaluate_signal
@@ -210,6 +211,15 @@ def main(argv: List[str] | None = None) -> int:
     positions = open_positions(real_trades, as_of)
     real_summary = summarize_trades(real_trades)
 
+    # Correlation between each candidate and the open positions: "this is
+    # partly the same bet you already hold". Warning only.
+    open_syms = [p["trade"].symbol for p in positions]
+    correlations = (
+        correlation_flags([sig.symbol for _s, sig in ranked], open_syms, provider)
+        if ranked and open_syms
+        else {}
+    )
+
     # Outcome tracker: resolve anything from prior runs that's now due,
     # record today's candidates, and persist. See track_record.py for why
     # this exists -- it's the groundwork for ever validating this screen
@@ -233,6 +243,7 @@ def main(argv: List[str] | None = None) -> int:
         track_record_summary=track_record_summary,
         hold=hold,
         positions=positions,
+        correlations=correlations,
         real_summary=real_summary,
     )
 

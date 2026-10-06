@@ -93,7 +93,11 @@ updated after each live cycle with what worked and what didn't.
     flags overdue exits, and summarizes closed trades. Unlike the outcome
     tracker, which simulates every flagged candidate, this is what you
     actually did.
-11. **Report** (`report.py`) — ranks the qualifying names and writes a
+11. **Portfolio-risk warnings** (`risk.py`) — flags a candidate whose daily
+    returns correlate >= 0.7 with an open position (partly the same bet, not
+    diversification) and notes the fixed-fee drag at a typical position size.
+    Warnings only.
+12. **Report** (`report.py`) — ranks the qualifying names and writes a
     Markdown table plus the list of names excluded and why.
 
 Prices are read from completed daily bars only: if Yahoo returns a partial bar
@@ -109,7 +113,9 @@ python -m halal_trader.backtest --years 3 --out backtests/backtest.md
 Replays the signal rules day by day on currently-compliant names with the
 tracker's exit rules (stop first, gap fills at the open, slippage on stop and
 time-stop exits), and compares the filter with entering on every day and with
-other stop/target ATR multiples. Read the caveats it prints: look-ahead in the
+other stop/target ATR multiples, and splits the live-parameter trades by
+trend regime at entry (symbol above/below its own 200-day SMA, and SPY's).
+Read the caveats it prints: look-ahead in the
 Shariah screen, survivorship in the universe, correlated trades, and the risk
 of re-tuning on the same data.
 

@@ -111,6 +111,16 @@ def stats(trades: List[Trade]) -> Optional[Dict]:
     }
 
 
+def _regime_map(df: pd.DataFrame) -> Dict:
+    """date -> True when that day's close is above its own 200-day SMA."""
+    sma = df["Close"].rolling(200).mean()
+    return {
+        ts.date(): bool(c > m)
+        for ts, c, m in zip(df.index, df["Close"], sma)
+        if pd.notna(m)
+    }
+
+
 def run_backtest(
     universe: List[str],
     years: int = 3,
@@ -126,6 +136,14 @@ def run_backtest(
     signal_trades = {c: [] for c in grid}
     anyday_trades = {c: [] for c in grid}
     used, skipped = [], []
+    default_cell = (params.stop_atr_multiple, params.target_atr_multiple)
+    regime_trades = {"above own 200d SMA": [], "below own 200d SMA": []}
+    spy_regime_trades = {"SPY above 200d SMA": [], "SPY below 200d SMA": []}
+    try:
+        spy_regime = _regime_map(provider.get_price_history("SPY", period=f"{years + 1}y"))
+    except (DataUnavailable, Exception) as exc:
+        print(f"[backtest] SPY unavailable, market-regime split skipped: {exc}", file=sys.stderr)
+        spy_regime = None
 
     for symbol in universe[: max_symbols or None]:
         try:
@@ -144,11 +162,21 @@ def run_backtest(
         used.append(symbol)
         for cell in grid:
             sm, tm = cell
-            signal_trades[cell] += simulate_trades(df, days, sm, tm, max_days, slippage_pct, True)
+            cell_trades = simulate_trades(df, days, sm, tm, max_days, slippage_pct, True)
+            signal_trades[cell] += cell_trades
             anyday_trades[cell] += simulate_trades(df, days, sm, tm, max_days, slippage_pct, False)
+            if cell == default_cell:
+                own = _regime_map(df)
+                for t in cell_trades:
+                    r = own.get(t.entry_date)
+                    if r is not None:
+                        regime_trades["above own 200d SMA" if r else "below own 200d SMA"].append(t)
+                    if spy_regime is not None:
+                        m = spy_regime.get(t.entry_date)
+                        if m is not None:
+                            spy_regime_trades["SPY above 200d SMA" if m else "SPY below 200d SMA"].append(t)
         print(f"[backtest] {symbol}: {len(days)} days evaluated", file=sys.stderr)
 
-    default_cell = (params.stop_atr_multiple, params.target_atr_multiple)
     halves = {}
     base = sorted(signal_trades.get(default_cell, []), key=lambda t: t.entry_date)
     if len(base) >= 20:
@@ -160,6 +188,8 @@ def run_backtest(
         "signal": {c: stats(t) for c, t in signal_trades.items()},
         "anyday": {c: stats(t) for c, t in anyday_trades.items()},
         "halves": halves,
+        "regimes": {k: stats(v) for k, v in regime_trades.items()},
+        "spy_regimes": {k: stats(v) for k, v in spy_regime_trades.items()} if spy_regime is not None else {},
         "default_cell": default_cell,
         "years": years,
         "slippage_pct": slippage_pct,
@@ -197,6 +227,17 @@ def render_markdown(result: Dict, as_of: date) -> str:
     for cell, s in result["anyday"].items():
         tag = " (live)" if cell == result["default_cell"] else ""
         lines.append(row(f"{cell[0]} / {cell[1]}{tag}", s))
+    if result.get("regimes"):
+        lines += ["", "## Regime split: live parameters, by trend regime at entry", "", head, sep]
+        for k, s_ in result["regimes"].items():
+            lines.append(row(k, s_))
+        for k, s_ in result.get("spy_regimes", {}).items():
+            lines.append(row(k, s_))
+        lines.append("")
+        lines.append(
+            "A regime where the signal loses money is a reason to stand aside, not to "
+            "re-tune. Small per-regime samples first: check n before believing a split."
+        )
     if result["halves"]:
         lines += ["", "## Stability: live parameters, first vs second half of the signal trades (by date)", "", head, sep]
         for k, s in result["halves"].items():

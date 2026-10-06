@@ -45,3 +45,19 @@ def test_run_backtest_end_to_end_on_synthetic_data_and_renders_caveats():
     assert result["anyday"][(1.5, 2.25)]["n"] > 0
     md = render_markdown(result, date(2026, 10, 5))
     assert "Any-day baseline" in md and "Look-ahead" in md and "Survivorship" in md
+
+
+def test_backtest_splits_default_cell_trades_by_own_200d_regime():
+    df = _make_ohlcv(UPTREND_PATTERN, n=320, last_volume_multiple=1.0)
+    df.loc[df.index[::3], "Volume"] = 2_000_000.0  # every 3rd day has confirming volume
+    provider = StaticProvider({"UP": _fund("UP")}, {"UP": df})
+
+    result = run_backtest(["UP"], years=1, provider=provider, grid=[(1.5, 2.25)], warmup=210)
+
+    regimes = result["regimes"]
+    n_signal = result["signal"][(1.5, 2.25)]["n"]
+    n_regime = sum(s["n"] for s in regimes.values() if s)
+    assert n_regime == n_signal  # every trade lands in exactly one regime
+    assert result["spy_regimes"] == {}  # no SPY fixture -> split skipped, not wrong
+    md = render_markdown(result, date(2026, 10, 6))
+    assert "Regime split" in md and "stand aside" in md

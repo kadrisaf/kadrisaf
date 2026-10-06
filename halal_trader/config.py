@@ -125,3 +125,8 @@ NYSE_HOLIDAYS = [
 # Assumed worse-than-trigger fill on market-style exits (stop / time-stop),
 # in percent. The tracker applies it; targets are limit orders (no slippage).
 EXIT_SLIPPAGE_PCT = 0.1
+
+# Portfolio-risk warning thresholds (report warnings only, never filters).
+CORRELATION_WARN = 0.7     # flag a candidate this correlated with an open position
+FEE_PER_ORDER_EUR = 1.0    # Trade Republic flat fee per executed order
+TYPICAL_POSITION_EUR = 500 # position size the report's cost-drag note assumes
