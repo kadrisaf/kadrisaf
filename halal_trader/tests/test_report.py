@@ -301,3 +301,13 @@ def test_report_flags_ranked_symbol_already_held_and_shows_real_summary():
     )
     assert "already in your open positions" in report
     assert "## Your real trades so far" in report and "+3.52%" in report
+
+
+def test_report_prints_order_tickets_with_formula_sizing_and_risk_warning():
+    report = build_report(_ranked_one(), [], [], [], as_of=date(2026, 10, 6))
+
+    assert "Order tickets (mechanical sizing -- NOT a recommendation" in report
+    # entry 100, stop 95 -> (1400*2%)/5 = 5.6 shares, 560 value
+    assert "| **TST** | 5.6 | 560.00" in report
+    assert "Risk setting" not in report  # 2% is inside the conventional band
+    assert "place the stop immediately" in report

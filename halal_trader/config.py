@@ -134,3 +134,11 @@ EXIT_SLIPPAGE_PCT = 0.1
 CORRELATION_WARN = 0.7     # flag a candidate this correlated with an open position
 FEE_PER_ORDER_EUR = 1.0    # Trade Republic flat fee per executed order
 TYPICAL_POSITION_EUR = 500 # position size the report's cost-drag note assumes
+
+# Order-ticket sizing (report output only -- nothing places orders).
+# position size = (PORTFOLIO_EUR * RISK_PCT_PER_TRADE%) / (entry - stop).
+# RISK_PCT_PER_TRADE set by the user: 5.0 on 2026-10-06, lowered to 2.0 the
+# same day. The report warns next to the tickets whenever it exceeds 2%.
+PORTFOLIO_EUR = 1400.0        # update when the account value changes
+RISK_PCT_PER_TRADE = 2.0
+MAX_POSITION_PCT_OF_PORTFOLIO = 100.0  # hard cap: never size past the account (no leverage)

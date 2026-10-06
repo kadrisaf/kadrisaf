@@ -48,3 +48,31 @@ def test_correlation_flags_only_above_threshold_and_skips_self_and_missing():
 def test_cost_drag_is_round_trip_fees_over_position():
     assert cost_drag_pct(500) == 0.4
     assert cost_drag_pct(100) == 2.0
+
+
+def test_order_ticket_sizes_by_formula():
+    from halal_trader.risk import order_ticket
+
+    t = order_ticket(entry=100.0, stop=90.0, target=115.0, portfolio_eur=1400, risk_pct=5.0)
+    assert t["shares"] == 7.0          # (1400*5%)/(100-90)
+    assert t["position_value"] == 700.0
+    assert t["risk_amount"] == 70.0
+    assert t["reward_amount"] == 105.0
+    assert t["capped"] is False
+
+
+def test_order_ticket_caps_at_portfolio_no_leverage():
+    from halal_trader.risk import order_ticket
+
+    # tight stop -> formula wants a position bigger than the account
+    t = order_ticket(entry=100.0, stop=99.0, target=101.5, portfolio_eur=1400, risk_pct=5.0)
+    assert t["capped"] is True
+    assert t["position_value"] == 1400.0
+    assert t["risk_amount"] < 1400 * 0.05  # cap reduces actual risk below the setting
+
+
+def test_order_ticket_rejects_broken_inputs():
+    from halal_trader.risk import order_ticket
+
+    assert order_ticket(100.0, 100.0, 110.0) is None  # zero-distance stop
+    assert order_ticket(100.0, 105.0, 110.0) is None  # stop above entry

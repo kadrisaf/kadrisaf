@@ -128,6 +128,10 @@ days from the actual entry day unless noted.
   FUTURE reports only -- open positions keep the levels they were entered with
   (real_trades.csv is unchanged). Wider stop = bigger per-share loss when hit:
   the sizing formula must set the share count.
+- **Order tickets added 2026-10-06:** the report now prints per-qualifier
+  mechanical sizing (PORTFOLIO_EUR=1400, RISK_PCT_PER_TRADE=2.0 -- user first
+  asked 5%, lowered to 2% same day; >2% triggers a warning banner). Formula
+  output only; the entry decision stays with the user, per the protocol.
 - Still open: the fixed R:R of 1.5:1 in the table is by construction (the
   entry-timing flags are the real check); MU entry fill/date and STX fill/qty
   still unconfirmed in track_record/real_trades.csv.

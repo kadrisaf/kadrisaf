@@ -11,7 +11,7 @@ from .filings import FilingItem
 from .macro import MacroSnapshot
 from .sentiment import SentimentTag
 from .shariah_screen import ScreenResult
-from .risk import cost_drag_pct
+from .risk import cost_drag_pct, order_ticket
 from .signals import TradeSignal
 from .trades import Trade, trade_return_pct
 
@@ -145,6 +145,7 @@ def build_report(
             "size each position so a stop-out is a small, plannable loss, and exit by the "
             "time-stop regardless of price if neither level is hit."
         )
+        lines += _order_ticket_lines(ranked)
         lines += _entry_context_lines(ranked, hold, positions, as_of, correlations)
         lines += [
             "",
@@ -289,4 +290,57 @@ def _entry_context_lines(ranked, hold, positions, as_of, correlations=None) -> L
                 lines.append(f"- ⚠ **{sig.symbol}** reports earnings on {d.isoformat()} -- INSIDE the hold window.")
             else:
                 lines.append(f"- **{sig.symbol}** next earnings {d.isoformat()} (outside the window).")
+    return lines
+
+
+def _order_ticket_lines(ranked) -> List[str]:
+    """Mechanical order tickets: every number filled in by formula, no
+    judgment anywhere. The decision to act stays with the reader."""
+    from . import config as _cfg
+
+    lines = [
+        "",
+        "### Order tickets (mechanical sizing -- NOT a recommendation to enter)",
+        "",
+        f"size = (portfolio {_cfg.PORTFOLIO_EUR:.0f} EUR x {_cfg.RISK_PCT_PER_TRADE:g}% risk) / "
+        f"(entry - stop), capped at {_cfg.MAX_POSITION_PCT_OF_PORTFOLIO:.0f}% of the portfolio. "
+        "Prices below are in the data currency (USD for US names) -- convert at your actual "
+        "EUR fill: same percentages, same share count. Enter at most ONE of these unless "
+        "aggregate risk stays within your cap.",
+        "",
+    ]
+    if _cfg.RISK_PCT_PER_TRADE > 2.0:
+        lines += [
+            f"⚠ **Risk setting: {_cfg.RISK_PCT_PER_TRADE:g}% of the account per trade** "
+            f"(common practice: 0.5-2%). Three consecutive stop-outs cost "
+            f"~{3 * _cfg.RISK_PCT_PER_TRADE:.0f}% of the account at this setting.",
+            "",
+        ]
+    lines.append(
+        "| Symbol | Shares | Position value | Entry (last close) | Stop (sell if below) "
+        "| Target (sell limit) | At stop | At target | Exit by |"
+    )
+    lines.append("|---|---|---|---|---|---|---|---|---|")
+    from .events import time_stop_date
+    from datetime import date as _date
+
+    for _screen, sig in ranked:
+        if sig.stop_loss is None or sig.target is None or sig.last_close is None:
+            continue
+        t = order_ticket(sig.last_close, sig.stop_loss, sig.target)
+        if t is None:
+            continue
+        cap = " (capped: no leverage)" if t["capped"] else ""
+        lines.append(
+            f"| **{sig.symbol}** | {t['shares']} | {t['position_value']:.2f}{cap} | "
+            f"{sig.last_close} | {sig.stop_loss} | {sig.target} | "
+            f"-{t['risk_amount']:.2f} | +{t['reward_amount']:.2f} | "
+            f"{sig.max_holding_days} trading days after entry |"
+        )
+    lines += [
+        "",
+        "If entered: place the stop immediately, place the target as a sell limit if your "
+        "broker allows both, and sell at market on the exit-by day if neither has triggered. "
+        "Update `PORTFOLIO_EUR` in `halal_trader/config.py` when the account value changes.",
+    ]
     return lines

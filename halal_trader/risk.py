@@ -79,3 +79,38 @@ def cost_drag_pct(position_eur: float = None) -> float:
     order, so 2 EUR per round trip."""
     position_eur = position_eur or config.TYPICAL_POSITION_EUR
     return round(2 * config.FEE_PER_ORDER_EUR / position_eur * 100, 2)
+
+
+def order_ticket(
+    entry: float,
+    stop: float,
+    target: float,
+    portfolio_eur: float = None,
+    risk_pct: float = None,
+) -> Optional[Dict]:
+    """Mechanical position sizing: (portfolio * risk%) / (entry - stop),
+    capped at MAX_POSITION_PCT_OF_PORTFOLIO (no leverage, ever). Returns the
+    share count and the cash amounts in the *entry's own currency*, computed
+    on the portfolio number as if 1:1 -- the report tells the user to convert
+    at their actual fill. None when the inputs can't size a trade."""
+    portfolio_eur = portfolio_eur if portfolio_eur is not None else config.PORTFOLIO_EUR
+    risk_pct = risk_pct if risk_pct is not None else config.RISK_PCT_PER_TRADE
+    risk_amount = portfolio_eur * risk_pct / 100.0
+    per_share_risk = entry - stop
+    if per_share_risk <= 0 or entry <= 0 or risk_amount <= 0:
+        return None
+    shares = risk_amount / per_share_risk
+    capped = False
+    max_value = portfolio_eur * config.MAX_POSITION_PCT_OF_PORTFOLIO / 100.0
+    if shares * entry > max_value:
+        shares = max_value / entry
+        capped = True
+    return {
+        "shares": round(shares, 4),
+        "position_value": round(shares * entry, 2),
+        "risk_amount": round(shares * per_share_risk, 2),
+        "reward_amount": round(shares * (target - entry), 2),
+        "capped": capped,
+        "risk_pct": risk_pct,
+        "portfolio": portfolio_eur,
+    }
