@@ -29,6 +29,7 @@ from .events import (
     load_event_calendar,
     next_earnings_date,
 )
+from .filing_digest import digest_filing
 from .filings import FilingItem, SecEdgarFilingsProvider
 from .macro import YFinanceMacroProvider
 from .report import build_report
@@ -36,7 +37,7 @@ from .risk import correlation_flags
 from .sentiment import AnthropicSentimentTagger, SentimentTag
 from .shariah_screen import ScreenResult, screen_company
 from .signals import TradeSignal, evaluate_signal
-from .trades import load_trades, open_positions, summarize_trades
+from .trades import load_trades, open_positions, plan_vs_real, summarize_trades
 from .track_record import (
     load_track_record,
     record_new_candidates,
@@ -194,6 +195,18 @@ def main(argv: List[str] | None = None) -> int:
             print(f"[filings] {symbol}: fetch failed: {exc}", file=sys.stderr)
             filings[symbol] = []
 
+    # LLM digest of the latest filing for each HELD position (see
+    # filing_digest.py). Extraction, not prediction; held names only.
+    digests: Dict[str, str] = {}
+    if api_key:
+        for p_ in positions:
+            sym = p_["trade"].symbol
+            items = filings.get(sym) or []
+            if items:
+                d = digest_filing(sym, items[0], api_key=api_key)
+                if d:
+                    digests[sym] = d
+
     # Macro snapshot -- always attempted, independent of whether anything
     # qualified today. Informational only; see macro.py.
     macro = None
@@ -231,6 +244,7 @@ def main(argv: List[str] | None = None) -> int:
     record_new_candidates(track_records, ranked, as_of)
     save_track_record(args.track_record, track_records)
     track_record_summary = summarize_track_record(track_records)
+    comparison = plan_vs_real(real_trades, track_records)
 
     report = build_report(
         ranked,
@@ -247,6 +261,8 @@ def main(argv: List[str] | None = None) -> int:
         positions=positions,
         correlations=correlations,
         real_summary=real_summary,
+        digests=digests,
+        comparison=comparison,
     )
 
     Path(args.out).write_text(report)

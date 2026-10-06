@@ -42,6 +42,8 @@ def build_report(
     positions: Optional[List[dict]] = None,
     real_summary: Optional[dict] = None,
     correlations: Optional[Dict[str, List[tuple]]] = None,
+    digests: Optional[Dict[str, str]] = None,
+    comparison: Optional[List[dict]] = None,
 ) -> str:
     as_of = as_of or datetime.utcnow().date()
     total = len(ranked) + len(screened_out) + len(not_qualifying) + len(skipped)
@@ -111,6 +113,29 @@ def build_report(
         )
         lines.append("- Tiny sample -- descriptive only, no evidence of edge.")
         lines.append("")
+        matched = [c for c in (comparison or []) if c["matched"]]
+        if matched:
+            lines.append("### Your exits vs the plan's (same trades, simulated to the letter)")
+            lines.append("")
+            lines.append("| Symbol | Your return | Plan-following return | Plan exit |")
+            lines.append("|---|---|---|---|")
+            for c in matched:
+                real = f"{c['real_pct']:+.2f}%" if c["real_pct"] is not None else "--"
+                lines.append(f"| {c['symbol']} | {real} | {c['plan_pct']:+.2f}% | {c['plan_exit']} |")
+            reals = [c["real_pct"] for c in matched if c["real_pct"] is not None]
+            plans = [c["plan_pct"] for c in matched]
+            if reals and plans:
+                lines.append(
+                    f"| **avg** | **{sum(reals)/len(reals):+.2f}%** | "
+                    f"**{sum(plans)/len(plans):+.2f}%** | |"
+                )
+            lines.append("")
+            lines.append(
+                "- Discipline check, not a verdict: the plan column assumes entry at the "
+                "ranking day's close and mechanical exits with slippage. Needs 30+ trades "
+                "to mean anything."
+            )
+            lines.append("")
 
     if track_record_summary is not None:
         lines.append("## Track record so far")
@@ -202,6 +227,15 @@ def build_report(
             for item in items:
                 entry = f"{item.form} ({item.filed})"
                 lines.append(f"  - [{entry}]({item.url})" if item.url else f"  - {entry}")
+        digests = digests or {}
+        if digests:
+            lines += [
+                "",
+                "### Filing digests (your positions -- LLM summary, verify before relying on it)",
+                "",
+            ]
+            for sym, d in digests.items():
+                lines.append(f"- **{sym}**: {d}")
     else:
         lines.append("_No symbol passed both the Shariah screen and the trade-setup filters today._")
 

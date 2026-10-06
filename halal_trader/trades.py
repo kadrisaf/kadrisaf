@@ -16,6 +16,8 @@ from datetime import date
 from pathlib import Path
 from typing import Dict, List, Optional
 
+from datetime import timedelta
+
 from .events import time_stop_date, trading_days_left
 
 FIELDNAMES = [
@@ -117,3 +119,38 @@ def summarize_trades(trades: List[Trade]) -> Optional[Dict]:
         "win_rate": round(100 * wins / len(returns), 1),
         "avg_return_pct": round(sum(returns) / len(returns), 2),
     }
+
+
+def plan_vs_real(trades: List[Trade], tracked) -> List[Dict]:
+    """Match each closed real trade to the tracker's simulated candidate for
+    the same symbol (nearest ranking date within 7 days of entry, resolved
+    rows only) -- so the report can show what following the plan to the
+    letter would have returned vs what actually happened. Rows without a
+    match are shown as unmatched rather than dropped."""
+    out: List[Dict] = []
+    for t in trades:
+        if t.status != "closed":
+            continue
+        real_ret = trade_return_pct(t)
+        match = None
+        if t.entry_date is not None:
+            candidates = [
+                r for r in tracked
+                if r.symbol == t.symbol and r.resolved and r.return_pct is not None
+                and abs((date.fromisoformat(r.date_ranked) - t.entry_date).days) <= 7
+            ]
+            if candidates:
+                match = min(
+                    candidates,
+                    key=lambda r: abs((date.fromisoformat(r.date_ranked) - t.entry_date).days),
+                )
+        out.append(
+            {
+                "symbol": t.symbol,
+                "real_pct": real_ret,
+                "plan_pct": match.return_pct if match else None,
+                "plan_exit": match.exit_reason if match else None,
+                "matched": match is not None,
+            }
+        )
+    return out

@@ -47,3 +47,23 @@ def test_summary_counts_only_closed_trades_with_a_return(tmp_path):
 def test_missing_file_is_empty(tmp_path):
     assert load_trades(str(tmp_path / "none.csv")) == []
     assert summarize_trades([]) is None
+
+
+def test_plan_vs_real_matches_nearest_tracked_candidate(tmp_path):
+    from halal_trader.track_record import TrackedCandidate
+    from halal_trader.trades import plan_vs_real
+
+    trades = _trades(tmp_path)  # NVDA closed +4.09 (no entry date), LOSS closed -5.0 (entry 2026-09-01)
+    tracked = [
+        TrackedCandidate("2026-09-01", "LOSS", 100, 95, 110, 5, resolved=True,
+                         resolution_date="2026-09-05", exit_price=95.0,
+                         exit_reason="stop", return_pct=-5.0),
+        TrackedCandidate("2026-08-01", "LOSS", 90, 85, 99, 5, resolved=True,
+                         resolution_date="2026-08-05", exit_price=99.0,
+                         exit_reason="target", return_pct=10.0),  # too far away: ignored
+    ]
+    rows = {r["symbol"]: r for r in plan_vs_real(trades, tracked)}
+
+    assert rows["LOSS"]["matched"] and rows["LOSS"]["plan_pct"] == -5.0
+    assert rows["LOSS"]["plan_exit"] == "stop"
+    assert rows["NVDA"]["matched"] is False  # no entry date -> unmatched, not dropped

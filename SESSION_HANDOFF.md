@@ -147,6 +147,13 @@ days from the actual entry day unless noted.
   beyond +/-8% in the last 5 bars removes the candidate. Verified: STX as of
   Oct 5 now fails with "post-shock whipsaw: -10.2% day". Applied consistently
   in signals.py and tune.py masks. Untested for edge -- revisit via backtest.
+- **Oct 6 evening (108 tests passing):** (a) `filing_digest.py` -- LLM digest of
+  the latest 8-K for each HELD position (verified live: ABBV guidance-revision
+  8-K and MU results 8-K digested correctly). (b) `plan_vs_real` -- report
+  compares each closed real trade with the tracker's simulated plan-following
+  exit for the same symbol/date; appears once matches resolve (STX Oct 6 row
+  resolves in coming days). Decision reaffirmed with user: NO price predictor
+  (asked again, declined again with the FINSABER evidence).
 - Still open: the fixed R:R of 1.5:1 in the table is by construction (the
   entry-timing flags are the real check); MU entry fill/date and STX fill/qty
   still unconfirmed in track_record/real_trades.csv.
