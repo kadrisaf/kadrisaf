@@ -47,7 +47,7 @@ history here (git log already has that).
    bought, no position-tracking file was updated, since Trade Republic has
    no API and the user executes manually.
 
-## Open positions (user's real Trade Republic trades, as of Mon 2026-10-05 12:08 Berlin)
+## Open positions (user's real Trade Republic trades, as of Tue 2026-10-06 10:33 Berlin)
 
 The tracker (`track_record/candidates.csv`) only logs screener candidates, NOT
 the user's actual trades -- this section is the source of truth for real ones.
@@ -56,10 +56,10 @@ days from the actual entry day unless noted.
 
 | Position | Entry | Value now | Since buy | Stop | Target | Time-stop |
 |---|---|---|---|---|---|---|
-| AbbVie (ABBV) | 2 sh @ EUR 235.10, Mon Oct 5 08:19 (EUR 471.20 incl. 1.00 fee) | EUR 466.00 | -1.10% | ~EUR 228.19 | ~EUR 245.47 | Fri Oct 9 |
+| AbbVie (ABBV) | 2 sh @ EUR 235.10, Mon Oct 5 08:19 (EUR 471.20 incl. 1.00 fee) | EUR 472.80 | +0.34% | ~EUR 228.19 | ~EUR 245.47 | Fri Oct 9 |
 | Microsoft (MSFT) | **CLOSED** Mon Oct 5 16:47: sold 1.209987 sh @ EUR 469.65, received EUR 567.27 (after 1.00 fee) | -- | +2.95% / +EUR 16.27 | -- | -- | -- (sold before the Oct 8 time-stop; implied cost basis ~EUR 551.00, buy date still unknown) |
-| Seagate (STX) | ~EUR 600 bought Tue Oct 6 (date inferred from the 08:09 screenshot; fill/qty unseen; ~EUR 601 cost incl. fee) | EUR 596.97 | -0.67% | 803.65 USD (-9.4%) | 1012.26 USD (+14.1%) | Mon Oct 12 |
-| Micron (MU) | fill/date NOT confirmed (report close 1065.11 USD) | EUR 351.32 | +0.09% | 997.48 USD | 1166.55 USD | Thu Oct 8 (same caveat) |
+| Seagate (STX) | ~EUR 600 bought Tue Oct 6 (date inferred from the 08:09 screenshot; fill/qty unseen; ~EUR 601 cost incl. fee) | EUR 586.36 | -2.44% | 803.65 USD (-9.4%) | 1012.26 USD (+14.1%) | Mon Oct 12 |
+| Micron (MU) | fill/date NOT confirmed (report close 1065.11 USD) | EUR 345.99 | -1.43% | 997.48 USD | 1166.55 USD | Thu Oct 8 (same caveat) |
 
 - AbbVie stop/target are the report's ATR levels (stop 255.09 / target 274.42
   USD vs 262.82 close) scaled to the EUR fill -- an approximation, check the

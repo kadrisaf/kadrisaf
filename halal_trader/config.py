@@ -139,6 +139,6 @@ TYPICAL_POSITION_EUR = 500 # position size the report's cost-drag note assumes
 # position size = (PORTFOLIO_EUR * RISK_PCT_PER_TRADE%) / (entry - stop).
 # RISK_PCT_PER_TRADE set by the user: 5.0 on 2026-10-06, lowered to 2.0 the
 # same day. The report warns next to the tickets whenever it exceeds 2%.
-PORTFOLIO_EUR = 1400.0        # update when the account value changes
+PORTFOLIO_EUR = 1405.0        # update when the account value changes (positions only, cash unknown; 2026-10-06 10:33)
 RISK_PCT_PER_TRADE = 2.0
 MAX_POSITION_PCT_OF_PORTFOLIO = 100.0  # hard cap: never size past the account (no leverage)
