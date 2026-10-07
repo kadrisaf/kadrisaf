@@ -1,5 +1,5 @@
 date_ranked,symbol,entry_close,stop,target,max_holding_days,resolved,resolution_date,exit_price,exit_reason,return_pct
-2026-09-29,NVDA,228.86,219.8252,242.4122,5,False,,,,
+2026-09-29,NVDA,228.86,219.8252,242.4122,5,True,2026-10-06,242.4122,target,5.92
 2026-10-01,MU,1065.11,997.4837,1166.5495,5,False,,,,
 2026-10-01,MSFT,512.9,495.1895,539.4658,5,False,,,,
 2026-10-01,DHR,221.55,212.9724,234.4164,5,True,2026-10-02,212.9724,stop,-3.87
@@ -9,3 +9,6 @@ date_ranked,symbol,entry_close,stop,target,max_holding_days,resolved,resolution_
 2026-10-06,WAT,440.12,421.9982,467.3028,5,False,,,,
 2026-10-06,ABBV,265.76,257.8259,277.6611,5,False,,,,
 2026-10-06,STX,887.09,803.6466,1012.2552,5,False,,,,
+2026-10-07,ZS,212.25,192.9058,241.2664,5,False,,,,
+2026-10-07,WAT,436.43,410.7191,474.9963,5,False,,,,
+2026-10-07,PG,148.41,143.5689,155.6717,5,False,,,,
