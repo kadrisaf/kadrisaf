@@ -154,3 +154,27 @@ def plan_vs_real(trades: List[Trade], tracked) -> List[Dict]:
             }
         )
     return out
+
+
+def weekly_review(trades: List[Trade], as_of: date) -> Optional[Dict]:
+    """Real trades closed in the 7 days before `as_of` -- the Monday
+    report's discipline scoreboard. None when the week had no closes."""
+    recent = [
+        t for t in trades
+        if t.status == "closed" and t.exit_date is not None
+        and 0 <= (as_of - t.exit_date).days < 7
+    ]
+    rows = [
+        {"symbol": t.symbol, "exit_date": t.exit_date, "ret": trade_return_pct(t)}
+        for t in recent
+    ]
+    rets = [r["ret"] for r in rows if r["ret"] is not None]
+    if not rets:
+        return None
+    wins = sum(1 for r in rets if r > 0)
+    return {
+        "rows": sorted(rows, key=lambda r: r["exit_date"]),
+        "count": len(rets),
+        "wins": wins,
+        "avg": round(sum(rets) / len(rets), 2),
+    }

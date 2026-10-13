@@ -37,7 +37,7 @@ from .risk import correlation_flags
 from .sentiment import AnthropicSentimentTagger, SentimentTag
 from .shariah_screen import ScreenResult, screen_company
 from .signals import TradeSignal, evaluate_signal
-from .trades import load_trades, open_positions, plan_vs_real, summarize_trades
+from .trades import load_trades, open_positions, plan_vs_real, summarize_trades, weekly_review
 from .track_record import (
     load_track_record,
     record_new_candidates,
@@ -141,6 +141,7 @@ def main(argv: List[str] | None = None) -> int:
     real_trades = load_trades(args.trades)
     positions = open_positions(real_trades, as_of)
     real_summary = summarize_trades(real_trades)
+    week = weekly_review(real_trades, as_of) if as_of.weekday() == 0 else None
 
     # Supplementary, non-scoring catalyst check -- for the names that
     # qualified AND the names currently held (you need news on what you own
@@ -263,6 +264,7 @@ def main(argv: List[str] | None = None) -> int:
         real_summary=real_summary,
         digests=digests,
         comparison=comparison,
+        week=week,
     )
 
     Path(args.out).write_text(report)

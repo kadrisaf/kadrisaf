@@ -67,3 +67,18 @@ def test_plan_vs_real_matches_nearest_tracked_candidate(tmp_path):
     assert rows["LOSS"]["matched"] and rows["LOSS"]["plan_pct"] == -5.0
     assert rows["LOSS"]["plan_exit"] == "stop"
     assert rows["NVDA"]["matched"] is False  # no entry date -> unmatched, not dropped
+
+
+def test_weekly_review_counts_only_last_7_days(tmp_path):
+    from halal_trader.trades import Trade, weekly_review
+
+    trades = [
+        Trade("A", "closed", exit_date=date(2026, 10, 7), realized_pct=4.0),
+        Trade("B", "closed", exit_date=date(2026, 10, 9), realized_pct=-2.0),
+        Trade("OLD", "closed", exit_date=date(2026, 10, 1), realized_pct=9.0),  # outside window
+        Trade("OPEN", "open"),
+    ]
+    week = weekly_review(trades, date(2026, 10, 12))
+    assert [r["symbol"] for r in week["rows"]] == ["A", "B"]
+    assert week == {**week, "count": 2, "wins": 1, "avg": 1.0}
+    assert weekly_review(trades, date(2026, 11, 2)) is None

@@ -147,3 +147,38 @@ def test_rss_fallback_failure_returns_empty():
         raise RuntimeError("blocked")
 
     assert _rss_news("ABBV", fetch=boom) == []
+
+
+def test_merge_news_dedupes_by_title_and_caps_at_limit():
+    from halal_trader.data_provider import _merge_news
+
+    pool = [
+        NewsItem(title="Big AI deal announced"),
+        NewsItem(title="  big ai DEAL announced "),  # dup after normalization
+        NewsItem(title="Second story"),
+        NewsItem(title="Third story"),
+        NewsItem(title="Fourth story"),
+    ]
+    merged = _merge_news(pool, limit=3)
+    assert [i.title for i in merged] == ["Big AI deal announced", "Second story", "Third story"]
+
+
+GOOGLE_XML = b"""<?xml version="1.0"?><rss version="2.0"><channel>
+<item><title>Marvell slides on AI costs - Reuters</title><link>https://example.com/g1</link>
+<pubDate>Mon, 12 Oct 2026 18:00:00 +0000</pubDate><source url="https://reuters.com">Reuters</source></item>
+<item><title>No source headline</title></item>
+</channel></rss>"""
+
+
+def test_google_news_parses_and_strips_publisher_suffix():
+    from halal_trader.data_provider import _google_news
+
+    items = _google_news("MRVL", limit=3, fetch=lambda s: GOOGLE_XML)
+    assert items[0].title == "Marvell slides on AI costs"
+    assert items[0].publisher == "Reuters" and items[0].published == "2026-10-12"
+    assert items[1].title == "No source headline"
+
+    def boom(s):
+        raise RuntimeError("blocked")
+
+    assert _google_news("MRVL", fetch=boom) == []

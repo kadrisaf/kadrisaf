@@ -44,6 +44,7 @@ def build_report(
     correlations: Optional[Dict[str, List[tuple]]] = None,
     digests: Optional[Dict[str, str]] = None,
     comparison: Optional[List[dict]] = None,
+    week: Optional[dict] = None,
 ) -> str:
     as_of = as_of or datetime.utcnow().date()
     total = len(ranked) + len(screened_out) + len(not_qualifying) + len(skipped)
@@ -101,6 +102,19 @@ def build_report(
 
     if positions:
         lines += _do_today_lines(positions, as_of, hold)
+
+    if week is not None:
+        lines.append("## Week in review (your real trades closed in the last 7 days)")
+        lines.append("")
+        lines.append("| Symbol | Closed | Return |")
+        lines.append("|---|---|---|")
+        for r in week["rows"]:
+            ret = f"{r['ret']:+.2f}%" if r["ret"] is not None else "--"
+            lines.append(f"| {r['symbol']} | {r['exit_date'].isoformat()} | {ret} |")
+        lines.append(
+            f"| **total** | {week['count']} trades, {week['wins']} wins | **{week['avg']:+.2f}% avg** |"
+        )
+        lines.append("")
 
     if real_summary is not None:
         lines.append("## Your real trades so far")

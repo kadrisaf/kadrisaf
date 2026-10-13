@@ -134,6 +134,14 @@ Read the caveats it prints: look-ahead in the
 Shariah screen, survivorship in the universe, correlated trades, and the risk
 of re-tuning on the same data.
 
+Headlines merge three free sources (yfinance, Yahoo RSS, Google News RSS),
+deduplicated by title. `.github/workflows/monthly_check.yml` re-runs the
+backtest, the split-sample tune and `halal_trader.universe_health` (persistent
+Shariah-screen failers) on the 1st of each month and commits the results to
+`backtests/auto/` -- the system re-tests its own (lack of) edge. Monday
+reports open with a week-in-review of the real trades closed in the last
+7 days.
+
 `python -m halal_trader.tune` runs the split-sample parameter test: a grid
 over RSI band / volume threshold / stop-target multiples / hold length is
 tuned on the first half of history and validated on the second half, with the

@@ -154,6 +154,16 @@ days from the actual entry day unless noted.
   exit for the same symbol/date; appears once matches resolve (STX Oct 6 row
   resolves in coming days). Decision reaffirmed with user: NO price predictor
   (asked again, declined again with the FINSABER evidence).
+- **Oct 13 additions (113 tests passing):** (a) news breadth -- headlines now
+  merge yfinance + Yahoo RSS + Google News RSS, deduped by title (verified
+  live on MRVL). (b) Monday reports print a week-in-review of real trades
+  closed in the last 7 days. (c) `universe_health.py` -- persistent
+  Shariah-screen failers from committed reports (first run: ORCL, LOW, AIR.PA
+  failed 21/21; removal left as a human decision). (d)
+  `.github/workflows/monthly_check.yml` -- re-runs backtest + tune + universe
+  health on the 1st monthly, commits to `backtests/auto/`. Open-source
+  LLM/agent predictor asked about again Oct 13; declined again (same
+  FINSABER evidence -- open weights don't change it).
 - Still open: the fixed R:R of 1.5:1 in the table is by construction (the
   entry-timing flags are the real check); MU entry fill/date and STX fill/qty
   still unconfirmed in track_record/real_trades.csv.

@@ -185,12 +185,14 @@ class YFinanceProvider:
             )
         else:
             print(f"[news] {symbol}: {len(raw)} raw, {len(items)} parsed", file=sys.stderr)
-        if not items:
-            # ticker.news has been returning 0 items since early Oct 2026;
-            # Yahoo's RSS headline feed still works, so fall back to it.
-            items = _rss_news(symbol, limit)
-            print(f"[news] {symbol}: RSS fallback -> {len(items)} items", file=sys.stderr)
-        return items
+        # Breadth: merge Yahoo's RSS feed and Google News on top of
+        # ticker.news (which has returned 0 items since early Oct 2026),
+        # dedupe by title, keep `limit`. One feed's blind spot shouldn't
+        # decide what the sentiment tagger sees.
+        pool = items + _rss_news(symbol, limit) + _google_news(symbol, limit)
+        merged = _merge_news(pool, limit)
+        print(f"[news] {symbol}: merged {len(pool)} -> {len(merged)} items", file=sys.stderr)
+        return merged
 
 
 def _rss_news(symbol: str, limit: int = 3, fetch=None) -> List["NewsItem"]:
@@ -237,6 +239,66 @@ def _rss_news(symbol: str, limit: int = 3, fetch=None) -> List["NewsItem"]:
         return items
     except Exception as exc:
         print(f"[news] {symbol}: RSS fallback failed: {exc}", file=sys.stderr)
+        return []
+
+
+def _merge_news(pool: List["NewsItem"], limit: int) -> List["NewsItem"]:
+    """Dedupe by normalized title (first wins -- callers put the richest
+    source first), keep `limit`."""
+    seen, out = set(), []
+    for item in pool:
+        key = " ".join((item.title or "").lower().split())[:80]
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        out.append(item)
+        if len(out) >= limit:
+            break
+    return out
+
+
+def _google_news(symbol: str, limit: int = 3, fetch=None) -> List["NewsItem"]:
+    """Headlines from Google News RSS (free, no key). Never raises. Titles
+    arrive as 'Headline - Publisher'; the publisher is also in <source>."""
+    try:
+        if fetch is None:
+            import requests
+
+            def fetch(sym):
+                r = requests.get(
+                    "https://news.google.com/rss/search",
+                    params={"q": f'"{sym}" stock', "hl": "en-US", "gl": "US", "ceid": "US:en"},
+                    headers={"User-Agent": "halal-trader/1.0"},
+                    timeout=10,
+                )
+                r.raise_for_status()
+                return r.content
+
+        import xml.etree.ElementTree as ET
+        from email.utils import parsedate_to_datetime
+
+        items: List[NewsItem] = []
+        for node in ET.fromstring(fetch(symbol)).findall(".//item")[: limit * 2]:
+            title = node.findtext("title")
+            if not title:
+                continue
+            publisher = node.findtext("source")
+            if publisher and title.endswith(f" - {publisher}"):
+                title = title[: -len(publisher) - 3]
+            published = None
+            pub = node.findtext("pubDate")
+            if pub:
+                try:
+                    published = parsedate_to_datetime(pub).strftime("%Y-%m-%d")
+                except (ValueError, TypeError):
+                    published = None
+            items.append(NewsItem(title=title, publisher=publisher or "Google News",
+                                  link=node.findtext("link") or None, published=published))
+            if len(items) >= limit:
+                break
+        return items
+    except Exception as exc:
+        print(f"[news] {symbol}: Google News fallback failed: {exc}", file=sys.stderr)
         return []
 
 
