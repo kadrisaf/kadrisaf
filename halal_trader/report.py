@@ -45,6 +45,7 @@ def build_report(
     digests: Optional[Dict[str, str]] = None,
     comparison: Optional[List[dict]] = None,
     week: Optional[dict] = None,
+    insider: Optional[Dict[str, object]] = None,
 ) -> str:
     as_of = as_of or datetime.utcnow().date()
     total = len(ranked) + len(screened_out) + len(not_qualifying) + len(skipped)
@@ -188,7 +189,7 @@ def build_report(
             "time-stop regardless of price if neither level is hit."
         )
         lines += _order_ticket_lines(ranked)
-        lines += _entry_context_lines(ranked, hold, positions, as_of, correlations)
+        lines += _entry_context_lines(ranked, hold, positions, as_of, correlations, insider)
         lines += [
             "",
             "### Recent headlines (unverified -- for manual catalyst review only)",
@@ -280,7 +281,7 @@ def build_report(
     return "\n".join(lines) + "\n"
 
 
-def _entry_context_lines(ranked, hold, positions, as_of, correlations=None) -> List[str]:
+def _entry_context_lines(ranked, hold, positions, as_of, correlations=None, insider=None) -> List[str]:
     """Entry-timing flags (52-week-high distance / overhead resistance) and
     what is scheduled inside the hold window. Warnings only: nothing here
     changes ranking, and none of it replaces ADVISORY_PROTOCOL section 3."""
@@ -294,6 +295,15 @@ def _entry_context_lines(ranked, hold, positions, as_of, correlations=None) -> L
             bits.append(f"reward:risk up to that high = {sig.rr_to_52w_high:.2f}:1")
         if sig.symbol in held:
             bits.append("**already in your open positions**")
+        act = (insider or {}).get(sig.symbol)
+        if act is not None and act.sell_count > 0:
+            value = f" (~${act.sold_value_usd/1e6:.1f}M)" if act.sold_value_usd else ""
+            bits.append(
+                f"⚠ {act.sell_count} insider open-market sale(s) filed in the last 14 days{value}"
+                + (f", {act.buy_count} buy(s)" if act.buy_count else "")
+            )
+        elif act is not None and act.buy_count > 0:
+            bits.append(f"{act.buy_count} insider open-market buy(s) filed in the last 14 days")
         for pos_sym, corr in (correlations or {}).get(sig.symbol, []):
             bits.append(
                 f"⚠ {corr:+.2f} return correlation with your open {pos_sym} position "

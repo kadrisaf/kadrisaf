@@ -64,3 +64,46 @@ def test_parse_filings_defaults_to_no_8k_present():
     )
 
     assert _parse_filings(data, CIK, forms=("8-K",), limit=3) == []
+
+
+FORM4_SALE = b"""<?xml version="1.0"?><ownershipDocument><nonDerivativeTable>
+<nonDerivativeTransaction>
+  <transactionCoding><transactionCode>S</transactionCode></transactionCoding>
+  <transactionAmounts><transactionShares><value>1000</value></transactionShares>
+  <transactionPricePerShare><value>273.59</value></transactionPricePerShare></transactionAmounts>
+</nonDerivativeTransaction>
+<nonDerivativeTransaction>
+  <transactionCoding><transactionCode>M</transactionCode></transactionCoding>
+  <transactionAmounts><transactionShares><value>500</value></transactionShares>
+  <transactionPricePerShare><value>10</value></transactionPricePerShare></transactionAmounts>
+</nonDerivativeTransaction>
+<nonDerivativeTransaction>
+  <transactionCoding><transactionCode>P</transactionCode></transactionCoding>
+  <transactionAmounts><transactionShares><value>200</value></transactionShares>
+  <transactionPricePerShare><value>270</value></transactionPricePerShare></transactionAmounts>
+</nonDerivativeTransaction>
+</nonDerivativeTable></ownershipDocument>"""
+
+
+def test_parse_form4_counts_only_open_market_codes():
+    from halal_trader.filings import _parse_form4_xml
+
+    sells, buys, sold = _parse_form4_xml(FORM4_SALE)
+    assert (sells, buys) == (1, 1)  # the 'M' option exercise is ignored
+    assert sold == 1000 * 273.59
+
+
+def test_recent_form4_urls_filters_by_form_and_window():
+    from datetime import date
+    from halal_trader.filings import _recent_form4_urls
+
+    data = {"filings": {"recent": {
+        "form": ["4", "8-K", "4", "4"],
+        "filingDate": ["2026-10-08", "2026-10-07", "2026-09-01", "bad-date"],
+        "accessionNumber": ["0001-26-1", "0001-26-2", "0001-26-3", "0001-26-4"],
+        "primaryDocument": ["xslF345X05/wk-form4.xml", "x.htm", "form4.xml", "f.xml"],
+    }}}
+    urls = _recent_form4_urls(data, 1835632, days=14, today=date(2026, 10, 13))
+    assert len(urls) == 1
+    assert urls[0].endswith("/000126 1/wk-form4.xml".replace(" ", "").replace("126 1", "126" + "1"))
+    assert "xsl" not in urls[0]  # XSL directory stripped -> raw XML

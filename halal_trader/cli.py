@@ -30,7 +30,7 @@ from .events import (
     next_earnings_date,
 )
 from .filing_digest import digest_filing
-from .filings import FilingItem, SecEdgarFilingsProvider
+from .filings import FilingItem, InsiderActivity, SecEdgarFilingsProvider, SecEdgarInsiderProvider
 from .macro import YFinanceMacroProvider
 from .report import build_report
 from .risk import correlation_flags
@@ -196,6 +196,14 @@ def main(argv: List[str] | None = None) -> int:
             print(f"[filings] {symbol}: fetch failed: {exc}", file=sys.stderr)
             filings[symbol] = []
 
+    # Insider activity (Form 4) for every covered name -- warning only.
+    insider_provider = SecEdgarInsiderProvider()
+    insider: Dict[str, InsiderActivity] = {}
+    for symbol in coverage:
+        act = insider_provider.get_insider_activity(symbol)
+        if act is not None:
+            insider[symbol] = act
+
     # LLM digest of the latest filing for each HELD position (see
     # filing_digest.py). Extraction, not prediction; held names only.
     digests: Dict[str, str] = {}
@@ -265,6 +273,7 @@ def main(argv: List[str] | None = None) -> int:
         digests=digests,
         comparison=comparison,
         week=week,
+        insider=insider,
     )
 
     Path(args.out).write_text(report)

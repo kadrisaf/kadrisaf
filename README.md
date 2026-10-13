@@ -134,6 +134,11 @@ Read the caveats it prints: look-ahead in the
 Shariah screen, survivorship in the universe, correlated trades, and the risk
 of re-tuning on the same data.
 
+Every candidate also carries an insider-activity line (SEC Form 4, last 14
+days, open-market sales/buys only) -- added after a trade where a cluster of
+insider-sale filings was the one visible pre-entry warning. Warning only,
+never scored.
+
 Headlines merge three free sources (yfinance, Yahoo RSS, Google News RSS),
 deduplicated by title. `.github/workflows/monthly_check.yml` re-runs the
 backtest, the split-sample tune and `halal_trader.universe_health` (persistent

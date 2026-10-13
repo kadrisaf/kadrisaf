@@ -356,3 +356,13 @@ def test_news_and_filings_cover_held_names_not_only_ranked():
 
     assert "Held co. wins contract" in report
     assert "- **HELD**:\n  - 8-K (2026-10-05)" in report
+
+
+def test_report_warns_on_insider_sales_for_ranked_candidates():
+    from halal_trader.filings import InsiderActivity
+
+    report = build_report(
+        _ranked_one(), [], [], [], as_of=date(2026, 10, 13),
+        insider={"TST": InsiderActivity(2, 2, 0, 2_921_449.0, 2)},
+    )
+    assert "2 insider open-market sale(s) filed in the last 14 days (~$2.9M)" in report

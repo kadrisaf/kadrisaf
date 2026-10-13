@@ -164,6 +164,12 @@ days from the actual entry day unless noted.
   health on the 1st monthly, commits to `backtests/auto/`. Open-source
   LLM/agent predictor asked about again Oct 13; declined again (same
   FINSABER evidence -- open weights don't change it).
+- **Insider-activity flag added Oct 13** (after the MRVL loss, 115 tests
+  passing): SEC Form 4 scan (14 days, open-market S/P codes only) on every
+  covered name; report warns with count and ~$ value. Verified live: MRVL
+  showed 2 sales / ~$2.9M -- the warning that existed before that entry.
+  Decision recorded: no "contested narrative" rule -- one loss doesn't
+  justify a hindsight filter (overfitting).
 - Still open: the fixed R:R of 1.5:1 in the table is by construction (the
   entry-timing flags are the real check); MU entry fill/date and STX fill/qty
   still unconfirmed in track_record/real_trades.csv.
