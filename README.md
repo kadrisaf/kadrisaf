@@ -134,6 +134,12 @@ Read the caveats it prints: look-ahead in the
 Shariah screen, survivorship in the universe, correlated trades, and the risk
 of re-tuning on the same data.
 
+The "Do today" section totals the aggregate stop risk of the open positions
+and flags any position sized above the per-trade risk setting; candidates
+whose sector already carries two or more open/recently-closed trades get a
+sector-streak warning; tickets include indicative EUR per-share equivalents
+at the live EURUSD rate.
+
 Every candidate also carries an insider-activity line (SEC Form 4, last 14
 days, open-market sales/buys only) -- added after a trade where a cluster of
 insider-sale filings was the one visible pre-entry warning. Warning only,

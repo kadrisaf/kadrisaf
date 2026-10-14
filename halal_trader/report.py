@@ -46,6 +46,8 @@ def build_report(
     comparison: Optional[List[dict]] = None,
     week: Optional[dict] = None,
     insider: Optional[Dict[str, object]] = None,
+    fx_usd_per_eur: Optional[float] = None,
+    sector_streaks: Optional[Dict[str, dict]] = None,
 ) -> str:
     as_of = as_of or datetime.utcnow().date()
     total = len(ranked) + len(screened_out) + len(not_qualifying) + len(skipped)
@@ -188,8 +190,8 @@ def build_report(
             "size each position so a stop-out is a small, plannable loss, and exit by the "
             "time-stop regardless of price if neither level is hit."
         )
-        lines += _order_ticket_lines(ranked)
-        lines += _entry_context_lines(ranked, hold, positions, as_of, correlations, insider)
+        lines += _order_ticket_lines(ranked) + _ticket_eur_lines(ranked, fx_usd_per_eur) + _order_ticket_tail_lines()
+        lines += _entry_context_lines(ranked, hold, positions, as_of, correlations, insider, sector_streaks)
         lines += [
             "",
             "### Recent headlines (unverified -- for manual catalyst review only)",
@@ -281,7 +283,7 @@ def build_report(
     return "\n".join(lines) + "\n"
 
 
-def _entry_context_lines(ranked, hold, positions, as_of, correlations=None, insider=None) -> List[str]:
+def _entry_context_lines(ranked, hold, positions, as_of, correlations=None, insider=None, sector_streaks=None) -> List[str]:
     """Entry-timing flags (52-week-high distance / overhead resistance) and
     what is scheduled inside the hold window. Warnings only: nothing here
     changes ranking, and none of it replaces ADVISORY_PROTOCOL section 3."""
@@ -295,6 +297,13 @@ def _entry_context_lines(ranked, hold, positions, as_of, correlations=None, insi
             bits.append(f"reward:risk up to that high = {sig.rr_to_52w_high:.2f}:1")
         if sig.symbol in held:
             bits.append("**already in your open positions**")
+        streak = (sector_streaks or {}).get(sig.symbol)
+        if streak:
+            bits.append(
+                f"⚠ sector streak: {streak['count']} recent trades in {streak['sector']} "
+                f"({streak['symbols']}) -- sequential concentration, the lesson of the "
+                f"Oct chip losses"
+            )
         act = (insider or {}).get(sig.symbol)
         if act is not None and act.sell_count > 0:
             value = f" (~${act.sold_value_usd/1e6:.1f}M)" if act.sold_value_usd else ""
@@ -398,13 +407,33 @@ def _order_ticket_lines(ranked) -> List[str]:
             f"-{t['risk_amount']:.2f} | +{t['reward_amount']:.2f} | "
             f"{sig.max_holding_days} trading days after entry |"
         )
-    lines += [
+    return lines
+
+
+def _ticket_eur_lines(ranked, fx_usd_per_eur) -> List[str]:
+    """EUR equivalents for the USD tickets -- every live question about
+    levels has been asked in euros."""
+    if not fx_usd_per_eur:
+        return []
+    out = ["", f"EUR equivalents (at 1 EUR = {fx_usd_per_eur:.4f} USD, indicative):", ""]
+    for _screen, sig in ranked:
+        if sig.last_close is None or sig.stop_loss is None or sig.target is None:
+            continue
+        out.append(
+            f"- **{sig.symbol}**: entry ~{sig.last_close / fx_usd_per_eur:.2f} EUR, "
+            f"stop ~{sig.stop_loss / fx_usd_per_eur:.2f} EUR, "
+            f"target ~{sig.target / fx_usd_per_eur:.2f} EUR per share"
+        )
+    return out
+
+
+def _order_ticket_tail_lines() -> List[str]:
+    return [
         "",
         "If entered: place the stop immediately, place the target as a sell limit if your "
         "broker allows both, and sell at market on the exit-by day if neither has triggered. "
         "Update `PORTFOLIO_EUR` in `halal_trader/config.py` when the account value changes.",
     ]
-    return lines
 
 
 def _coverage_symbols(ranked, positions) -> List[str]:
@@ -455,6 +484,31 @@ def _do_today_lines(positions, as_of, hold) -> List[str]:
             lines.append(
                 f"  - ⚠ no stop recorded for {t.symbol} -- place one and record it."
             )
+    from . import config as _cfg
+
+    risks = []
+    for p in positions:
+        t = p["trade"]
+        if t.entry_price and t.stop and t.quantity:
+            risks.append((t.symbol, (t.entry_price - t.stop) * t.quantity))
+    if risks:
+        total = sum(r for _s, r in risks)
+        pct = 100 * total / _cfg.PORTFOLIO_EUR
+        line = (
+            f"- Aggregate stop risk across open positions: "
+            f"~{total:.0f} EUR ({pct:.1f}% of the {_cfg.PORTFOLIO_EUR:.0f} EUR base)."
+        )
+        if pct > 3 * _cfg.RISK_PCT_PER_TRADE:
+            line += " **Above 3 positions' worth -- no new entries until something closes.**"
+        lines.append(line)
+        for sym, r in risks:
+            rp = 100 * r / _cfg.PORTFOLIO_EUR
+            if rp > 1.25 * _cfg.RISK_PCT_PER_TRADE:
+                lines.append(
+                    f"  - ⚠ {sym} alone risks ~{r:.0f} EUR ({rp:.1f}%) -- sized above the "
+                    f"{_cfg.RISK_PCT_PER_TRADE:g}% setting; the ticket sizing exists for this."
+                )
+
     todays = [e for e in (hold.macro_events if hold else []) if e.day == as_of]
     for e in todays:
         lines.append(f"- ⚠ Scheduled today: {e.name}.")

@@ -178,3 +178,33 @@ def weekly_review(trades: List[Trade], as_of: date) -> Optional[Dict]:
         "wins": wins,
         "avg": round(sum(rets) / len(rets), 2),
     }
+
+
+def sector_streaks(
+    ranked_symbols: List[str],
+    trades: List[Trade],
+    sectors: Dict[str, Optional[str]],
+    as_of: date,
+    lookback_days: int = 14,
+    min_count: int = 2,
+) -> Dict[str, dict]:
+    """Flag a candidate whose sector already carries `min_count`+ recent
+    trades (open, or closed within `lookback_days`). The correlation flag
+    only sees simultaneous holdings; this catches the STX -> MU -> MRVL
+    pattern of re-entering the same sector bet as each leg closes."""
+    recent: List[Trade] = []
+    for t in trades:
+        if t.status == "open":
+            recent.append(t)
+        elif t.exit_date is not None and 0 <= (as_of - t.exit_date).days <= lookback_days:
+            recent.append(t)
+    out: Dict[str, dict] = {}
+    for sym in ranked_symbols:
+        sector = sectors.get(sym)
+        if not sector:
+            continue
+        same = [t.symbol for t in recent if t.symbol != sym and sectors.get(t.symbol) == sector]
+        if len(same) >= min_count:
+            seen = list(dict.fromkeys(same))
+            out[sym] = {"sector": sector, "count": len(same), "symbols": ", ".join(seen)}
+    return out

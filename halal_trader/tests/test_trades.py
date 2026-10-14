@@ -82,3 +82,26 @@ def test_weekly_review_counts_only_last_7_days(tmp_path):
     assert [r["symbol"] for r in week["rows"]] == ["A", "B"]
     assert week == {**week, "count": 2, "wins": 1, "avg": 1.0}
     assert weekly_review(trades, date(2026, 11, 2)) is None
+
+
+def test_sector_streak_catches_sequential_same_sector_bets():
+    from halal_trader.trades import Trade, sector_streaks
+
+    trades = [
+        Trade("STX", "closed", date(2026, 10, 6), 600.0, 1, "EUR",
+              exit_date=date(2026, 10, 6), realized_pct=-6.13),
+        Trade("MU", "closed", date(2026, 10, 1), 952.0, 0.4, "EUR",
+              exit_date=date(2026, 10, 7), realized_pct=-4.3),
+        Trade("SAP", "open", date(2026, 10, 12), 191.44, 0.86, "EUR"),
+    ]
+    sectors = {"STX": "Technology", "MU": "Technology", "MRVL": "Technology",
+               "SAP": "Technology", "DHR": "Healthcare"}
+
+    streaks = sector_streaks(["MRVL", "DHR"], trades, sectors, date(2026, 10, 9))
+
+    assert streaks["MRVL"]["count"] == 3 and "STX" in streaks["MRVL"]["symbols"]
+    assert "DHR" not in streaks  # different sector, no streak
+
+    # outside the lookback window the closed legs stop counting
+    late = sector_streaks(["MRVL"], trades, sectors, date(2026, 11, 30))
+    assert "MRVL" not in late  # only SAP still open -> below min_count

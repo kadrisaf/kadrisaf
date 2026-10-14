@@ -17,7 +17,7 @@ import os
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from . import config
 from .data_provider import DataProvider, DataUnavailable, NewsItem, YFinanceProvider
@@ -37,7 +37,7 @@ from .risk import correlation_flags
 from .sentiment import AnthropicSentimentTagger, SentimentTag
 from .shariah_screen import ScreenResult, screen_company
 from .signals import TradeSignal, evaluate_signal
-from .trades import load_trades, open_positions, plan_vs_real, summarize_trades, weekly_review
+from .trades import load_trades, open_positions, plan_vs_real, sector_streaks, summarize_trades, weekly_review
 from .track_record import (
     load_track_record,
     record_new_candidates,
@@ -63,7 +63,8 @@ def load_universe(path: str | None) -> List[str]:
 
 
 def run(
-    universe: List[str], top: int, provider: DataProvider | None = None
+    universe: List[str], top: int, provider: DataProvider | None = None,
+    sectors_out: Optional[Dict[str, Optional[str]]] = None,
 ) -> Tuple[
     List[Tuple[ScreenResult, TradeSignal]],
     List[ScreenResult],
@@ -71,6 +72,7 @@ def run(
     List[str],
 ]:
     """Screen every symbol in `universe` and bucket it into exactly one of:
+    (also fills `sectors_out`, when given, with each symbol's sector string)
     ranked (compliant + qualifying setup), screened_out (fails Shariah
     screen), not_qualifying (compliant but no qualifying trade setup right
     now), or skipped (data unavailable). Every symbol lands in exactly one
@@ -89,6 +91,8 @@ def run(
             skipped.append(symbol)
             continue
 
+        if sectors_out is not None:
+            sectors_out[symbol] = fundamentals.sector
         screen = screen_company(fundamentals)
         if not screen.compliant:
             screened_out.append(screen)
@@ -134,7 +138,10 @@ def main(argv: List[str] | None = None) -> int:
     as_of = datetime.now(timezone.utc).date()
     universe = load_universe(args.universe)
     provider = YFinanceProvider()
-    ranked, screened_out, not_qualifying, skipped = run(universe, args.top, provider=provider)
+    sectors: Dict[str, Optional[str]] = {}
+    ranked, screened_out, not_qualifying, skipped = run(
+        universe, args.top, provider=provider, sectors_out=sectors
+    )
 
     # The user's REAL trades (hand-maintained CSV): open positions with
     # time-stops from the actual entry day, plus a closed-trade summary.
@@ -244,6 +251,17 @@ def main(argv: List[str] | None = None) -> int:
         else {}
     )
 
+    # Sector-streak check: same-sector bets re-entered leg after leg.
+    streaks = sector_streaks([sig.symbol for _s, sig in ranked], real_trades, sectors, as_of)
+
+    # Indicative EURUSD for the tickets' EUR equivalents. Never fatal.
+    fx = None
+    try:
+        fx_hist = provider.get_price_history("EURUSD=X", period="5d")
+        fx = float(fx_hist["Close"].iloc[-1])
+    except Exception as exc:
+        print(f"[fx] EURUSD unavailable: {exc}", file=sys.stderr)
+
     # Outcome tracker: resolve anything from prior runs that's now due,
     # record today's candidates, and persist. See track_record.py for why
     # this exists -- it's the groundwork for ever validating this screen
@@ -274,6 +292,8 @@ def main(argv: List[str] | None = None) -> int:
         comparison=comparison,
         week=week,
         insider=insider,
+        fx_usd_per_eur=fx,
+        sector_streaks=streaks,
     )
 
     Path(args.out).write_text(report)

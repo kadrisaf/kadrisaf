@@ -170,6 +170,14 @@ days from the actual entry day unless noted.
   showed 2 sales / ~$2.9M -- the warning that existed before that entry.
   Decision recorded: no "contested narrative" rule -- one loss doesn't
   justify a hindsight filter (overfitting).
+- **Oct 14 architecture pass (119 tests passing), from live lessons:** (a) Do
+  today now prints aggregate stop risk across open positions (% of base) and
+  flags any single position sized >1.25x the risk setting (lesson: STX 2.7x,
+  6-position load drift). (b) Sector-streak warning: candidate whose sector
+  already has >=2 open/recently-closed trades (lesson: STX->MU->MRVL chips;
+  fired on day one for the new Healthcare run: WAT->ABBV->DHR). (c) Tickets
+  print EUR per-share equivalents at the live EURUSD rate (verified within
+  cents of actual Tradegate fills).
 - Still open: the fixed R:R of 1.5:1 in the table is by construction (the
   entry-timing flags are the real check); MU entry fill/date and STX fill/qty
   still unconfirmed in track_record/real_trades.csv.
