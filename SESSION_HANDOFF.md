@@ -178,6 +178,12 @@ days from the actual entry day unless noted.
   fired on day one for the new Healthcare run: WAT->ABBV->DHR). (c) Tickets
   print EUR per-share equivalents at the live EURUSD rate (verified within
   cents of actual Tradegate fills).
+- **Lower-target test Oct 19** (user asked after eyeing DHR's intraday peak:
+  "should we lower the target?"): backtests/2026-10-19-tune-lower-targets.md.
+  Answer: NO -- returns fall monotonically as the target tightens (valid avg:
+  3.0x +0.309% > 2.5x +0.275% > 2.0x +0.237% > 1.5x +0.157% > 1.0x +0.065%).
+  Tighter targets raise win rate (52% -> 62%) while shrinking profit -- the
+  seductive bad trade. Live params unchanged.
 - Still open: the fixed R:R of 1.5:1 in the table is by construction (the
   entry-timing flags are the real check); MU entry fill/date and STX fill/qty
   still unconfirmed in track_record/real_trades.csv.
