@@ -87,6 +87,7 @@ def order_ticket(
     target: float,
     portfolio_eur: float = None,
     risk_pct: float = None,
+    max_position_eur: Optional[float] = None,
 ) -> Optional[Dict]:
     """Mechanical position sizing: (portfolio * risk%) / (entry - stop),
     capped at MAX_POSITION_PCT_OF_PORTFOLIO (no leverage, ever). Returns the
@@ -104,6 +105,10 @@ def order_ticket(
     shares = risk_amount / per_share_risk
     capped = False
     max_value = portfolio_eur * config.MAX_POSITION_PCT_OF_PORTFOLIO / 100.0
+    if max_position_eur is not None:
+        max_value = min(max_value, max_position_eur)
+    if max_value <= 0:
+        return None
     if shares * entry > max_value:
         shares = max_value / entry
         capped = True

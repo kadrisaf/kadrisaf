@@ -190,7 +190,21 @@ def build_report(
             "size each position so a stop-out is a small, plannable loss, and exit by the "
             "time-stop regardless of price if neither level is hit."
         )
-        lines += _order_ticket_lines(ranked) + _ticket_eur_lines(ranked, fx_usd_per_eur) + _order_ticket_tail_lines()
+        from . import config as _cfg_tickets
+
+        invested_total = sum(
+            p["trade"].entry_price * p["trade"].quantity
+            for p in (positions or [])
+            if p["trade"].entry_price and p["trade"].quantity
+        )
+        remaining_budget = (
+            max(0.0, _cfg_tickets.PORTFOLIO_EUR - invested_total) if positions else None
+        )
+        lines += (
+            _order_ticket_lines(ranked, remaining_budget=remaining_budget)
+            + _ticket_eur_lines(ranked, fx_usd_per_eur)
+            + _order_ticket_tail_lines()
+        )
         lines += _entry_context_lines(ranked, hold, positions, as_of, correlations, insider, sector_streaks)
         lines += [
             "",
@@ -362,7 +376,7 @@ def _entry_context_lines(ranked, hold, positions, as_of, correlations=None, insi
     return lines
 
 
-def _order_ticket_lines(ranked) -> List[str]:
+def _order_ticket_lines(ranked, remaining_budget=None) -> List[str]:
     """Mechanical order tickets: every number filled in by formula, no
     judgment anywhere. The decision to act stays with the reader."""
     from . import config as _cfg
@@ -376,7 +390,9 @@ def _order_ticket_lines(ranked) -> List[str]:
         f"positions, volatile names smaller, every ticket risks the same "
         f"~{_cfg.PORTFOLIO_EUR * _cfg.RISK_PCT_PER_TRADE / 100:.0f} EUR. Capped at "
         f"{_cfg.MAX_POSITION_PCT_OF_PORTFOLIO:.0f}% of the budget per name. The budget is "
-        "the gate: enter while free cash covers a ticket. Prices below are in the data "
+        "the gate: tickets never exceed the free cash left, and any leftover -- however "
+        "small -- can be the last ticket (fees get called out under 400 EUR). "
+        "Prices below are in the data "
         "currency (USD for US names) -- convert at your actual EUR fill: same percentages, "
         "same share count.",
         "",
@@ -392,7 +408,8 @@ def _order_ticket_lines(ranked) -> List[str]:
     for _screen, sig in ranked:
         if sig.stop_loss is None or sig.target is None or sig.last_close is None:
             continue
-        t = order_ticket(sig.last_close, sig.stop_loss, sig.target)
+        t = order_ticket(sig.last_close, sig.stop_loss, sig.target,
+                         max_position_eur=remaining_budget)
         if t is None:
             continue
         cap = " (capped: per-name limit)" if t["capped"] else ""
@@ -494,12 +511,16 @@ def _do_today_lines(positions, as_of, hold) -> List[str]:
             f"- Budget: ~{invested:.0f} of {_cfg.PORTFOLIO_EUR:.0f} EUR invested; "
             f"~{remaining:.0f} EUR free."
         )
-        if remaining < _cfg.MIN_TICKET_EUR:
-            line += (
-                f" **Budget full -- under {_cfg.MIN_TICKET_EUR:.0f} EUR free "
-                f"(fee-efficiency floor): no new entries until something closes.**"
-            )
+        if remaining < _cfg.BUDGET_FULL_EUR:
+            line += " **Budget full -- no new entries until something closes.**"
         lines.append(line)
+        if _cfg.BUDGET_FULL_EUR <= remaining < _cfg.MIN_TICKET_EUR:
+            lines.append(
+                f"  - ⚠ leftover {remaining:.0f} EUR is below the {_cfg.MIN_TICKET_EUR:.0f} EUR "
+                f"fee-efficiency floor: a ticket this size pays "
+                f"{100 * 2 * _cfg.FEE_PER_ORDER_EUR / max(remaining, 1):.1f}% in round-trip fees. "
+                f"Allowed, but the fee eats the edge."
+            )
         if risks:
             total = sum(r for _s, r in risks)
             lines.append(

@@ -393,7 +393,7 @@ def test_budget_full_blocks_new_entries_line():
     from halal_trader.trades import Trade, open_positions
     from halal_trader import config as _cfg
 
-    qty = (_cfg.PORTFOLIO_EUR - 0.5 * _cfg.MIN_TICKET_EUR) / 100.0
+    qty = (_cfg.PORTFOLIO_EUR - 0.5 * _cfg.BUDGET_FULL_EUR) / 100.0
     trades = [Trade("ALL", "open", date(2026, 10, 12), 100.0, qty, "EUR", 90.0, 120.0)]
     report = build_report(
         [], [], [], [], as_of=date(2026, 10, 14),
@@ -411,3 +411,21 @@ def test_tickets_print_eur_equivalents_and_sector_streak_warning():
     # entry 100 USD / 1.25 = 80 EUR
     assert "entry ~80.00 EUR" in report and "stop ~76.00 EUR" in report
     assert "sector streak: 3 recent trades in Technology (STX, MU)" in report
+
+
+def test_last_leftover_can_be_a_ticket_and_is_capped_by_free_cash():
+    from halal_trader.trades import Trade, open_positions
+    from halal_trader import config as _cfg
+
+    # 2100 of 2250 invested -> 150 EUR free: ticket must shrink to 150, with a fee note
+    qty = 2100.0 / 100.0
+    held = open_positions(
+        [Trade("ALL", "open", date(2026, 10, 19), 100.0, qty, "EUR", 90.0, 120.0)],
+        date(2026, 10, 20),
+    )
+    report = build_report(
+        _ranked_one(), [], [], [], as_of=date(2026, 10, 20), positions=held,
+    )
+    assert "| **TST** | 1.5 | 150.00 (capped: per-name limit)" in report
+    assert "below the 400 EUR fee-efficiency floor" in report
+    assert "Budget full" not in report  # 150 EUR left is still investable

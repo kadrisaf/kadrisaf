@@ -143,11 +143,14 @@ TYPICAL_POSITION_EUR = 500 # position size the report's cost-drag note assumes
 # formula (PORTFOLIO_EUR * RISK_PCT_PER_TRADE%) / (entry - stop): calm names
 # get bigger positions, volatile names smaller, every ticket risks the same
 # euros. Each ticket is capped at MAX_POSITION_PCT_OF_PORTFOLIO of the
-# budget, and the report declares the budget full when the free cash left
-# can't fund a fee-efficient ticket (MIN_TICKET_EUR, where the 2 EUR
-# round-trip fee stays under ~0.5%).
+# budget. Any leftover cash can be a ticket, however small (user decision
+# 2026-10-20: "if 2100 invested I still want to invest the last 150") -- the
+# report only warns when a ticket falls under MIN_TICKET_EUR, where the 2 EUR
+# round-trip fee exceeds ~0.5%, and declares the budget full only when the
+# leftover is too small to trade at all.
 SIZING_MODE = "risk_formula"
 PORTFOLIO_EUR = 2250.0        # user-set budget, 2026-10-20; update anytime
 RISK_PCT_PER_TRADE = 2.0      # % of budget risked per trade (entry - stop)
 MAX_POSITION_PCT_OF_PORTFOLIO = 33.0  # one name never takes more than a third of the budget
-MIN_TICKET_EUR = 400.0        # fee-efficiency floor; also the budget-full threshold
+MIN_TICKET_EUR = 400.0        # fee-efficiency WARNING threshold (never blocks)
+BUDGET_FULL_EUR = 10.0        # below this leftover, there is nothing left to invest

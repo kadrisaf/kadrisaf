@@ -192,7 +192,9 @@ days from the actual entry day unless noted.
   math (187.50 EUR slices = 1.07% round-trip drag vs ~0.3% edge) -- user
   moved to stock-dependent sizing instead. All numbers in config.py, change
   anytime: PORTFOLIO_EUR, RISK_PCT_PER_TRADE, MAX_POSITION_PCT_OF_PORTFOLIO,
-  MIN_TICKET_EUR.
+  MIN_TICKET_EUR. Refined same day: any leftover can be the last ticket
+  (tickets are capped by free cash; under-400 leftovers get a fee warning,
+  "budget full" only below 10 EUR).
 - Still open: the fixed R:R of 1.5:1 in the table is by construction (the
   entry-timing flags are the real check); MU entry fill/date and STX fill/qty
   still unconfirmed in track_record/real_trades.csv.
