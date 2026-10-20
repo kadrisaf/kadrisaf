@@ -50,25 +50,30 @@ def test_cost_drag_is_round_trip_fees_over_position():
     assert cost_drag_pct(100) == 2.0
 
 
-def test_order_ticket_sizes_by_formula():
+def test_order_ticket_sizes_by_volatility():
     from halal_trader.risk import order_ticket
 
-    t = order_ticket(entry=100.0, stop=90.0, target=115.0, portfolio_eur=1400, risk_pct=5.0)
-    assert t["shares"] == 7.0          # (1400*5%)/(100-90)
-    assert t["position_value"] == 700.0
-    assert t["risk_amount"] == 70.0
-    assert t["reward_amount"] == 105.0
-    assert t["capped"] is False
+    # 10% stop distance: (1400 * 2%) / 10 = 2.8 shares (below the 33% cap)
+    t = order_ticket(entry=100.0, stop=90.0, target=115.0, portfolio_eur=1400, risk_pct=2.0)
+    assert t["shares"] == 2.8
+    assert t["position_value"] == 280.0
+    assert t["risk_amount"] == 28.0
+
+    # calmer stock (7% stop distance) -> bigger position, same euro risk
+    calm = order_ticket(entry=100.0, stop=93.0, target=110.0, portfolio_eur=1400, risk_pct=2.0)
+    assert calm["position_value"] > t["position_value"]
+    assert calm["risk_amount"] == 28.0
 
 
-def test_order_ticket_caps_at_portfolio_no_leverage():
+def test_order_ticket_caps_at_max_position_pct():
+    from halal_trader import config
     from halal_trader.risk import order_ticket
 
-    # tight stop -> formula wants a position bigger than the account
-    t = order_ticket(entry=100.0, stop=99.0, target=101.5, portfolio_eur=1400, risk_pct=5.0)
+    # near-zero stop distance -> uncapped size would exceed the per-name cap
+    t = order_ticket(entry=100.0, stop=99.5, target=101.0)
+    cap = config.PORTFOLIO_EUR * config.MAX_POSITION_PCT_OF_PORTFOLIO / 100
     assert t["capped"] is True
-    assert t["position_value"] == 1400.0
-    assert t["risk_amount"] < 1400 * 0.05  # cap reduces actual risk below the setting
+    assert t["position_value"] == round(cap, 2)
 
 
 def test_order_ticket_rejects_broken_inputs():

@@ -138,9 +138,16 @@ FEE_PER_ORDER_EUR = 1.0    # Trade Republic flat fee per executed order
 TYPICAL_POSITION_EUR = 500 # position size the report's cost-drag note assumes
 
 # Order-ticket sizing (report output only -- nothing places orders).
-# position size = (PORTFOLIO_EUR * RISK_PCT_PER_TRADE%) / (entry - stop).
-# RISK_PCT_PER_TRADE set by the user: 5.0 on 2026-10-06, lowered to 2.0 the
-# same day. The report warns next to the tickets whenever it exceeds 2%.
-PORTFOLIO_EUR = 1405.0        # update when the account value changes (positions only, cash unknown; 2026-10-06 10:33)
-RISK_PCT_PER_TRADE = 2.0
-MAX_POSITION_PCT_OF_PORTFOLIO = 100.0  # hard cap: never size past the account (no leverage)
+# User decisions 2026-10-20: the BUDGET is the gate (no fixed position count)
+# and each position's size depends on the stock itself -- the volatility
+# formula (PORTFOLIO_EUR * RISK_PCT_PER_TRADE%) / (entry - stop): calm names
+# get bigger positions, volatile names smaller, every ticket risks the same
+# euros. Each ticket is capped at MAX_POSITION_PCT_OF_PORTFOLIO of the
+# budget, and the report declares the budget full when the free cash left
+# can't fund a fee-efficient ticket (MIN_TICKET_EUR, where the 2 EUR
+# round-trip fee stays under ~0.5%).
+SIZING_MODE = "risk_formula"
+PORTFOLIO_EUR = 2250.0        # user-set budget, 2026-10-20; update anytime
+RISK_PCT_PER_TRADE = 2.0      # % of budget risked per trade (entry - stop)
+MAX_POSITION_PCT_OF_PORTFOLIO = 33.0  # one name never takes more than a third of the budget
+MIN_TICKET_EUR = 400.0        # fee-efficiency floor; also the budget-full threshold

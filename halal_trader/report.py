@@ -328,10 +328,9 @@ def _entry_context_lines(ranked, hold, positions, as_of, correlations=None, insi
     from . import config as _cfg
 
     lines.append(
-        f"- Cost note: at a {_cfg.TYPICAL_POSITION_EUR:.0f} EUR position, round-trip fees "
-        f"({2 * _cfg.FEE_PER_ORDER_EUR:.0f} EUR) are {cost_drag_pct():.2f}% -- the backtested "
-        f"average per trade was +0.27%, so fees alone consume most of it at this size. "
-        f"Smaller positions make that worse."
+        f"- Cost note: round-trip fees are {2 * _cfg.FEE_PER_ORDER_EUR:.0f} EUR per position -- "
+        f"under {_cfg.MIN_TICKET_EUR:.0f} EUR that exceeds 0.5% and starts eating the "
+        f"backtested ~+0.27%/trade edge; the tickets above stay over the floor."
     )
 
     if hold is not None and hold.window:
@@ -372,20 +371,16 @@ def _order_ticket_lines(ranked) -> List[str]:
         "",
         "### Order tickets (mechanical sizing -- NOT a recommendation to enter)",
         "",
-        f"size = (portfolio {_cfg.PORTFOLIO_EUR:.0f} EUR x {_cfg.RISK_PCT_PER_TRADE:g}% risk) / "
-        f"(entry - stop), capped at {_cfg.MAX_POSITION_PCT_OF_PORTFOLIO:.0f}% of the portfolio. "
-        "Prices below are in the data currency (USD for US names) -- convert at your actual "
-        "EUR fill: same percentages, same share count. Enter at most ONE of these unless "
-        "aggregate risk stays within your cap.",
+        f"size depends on the stock: (budget {_cfg.PORTFOLIO_EUR:.0f} EUR x "
+        f"{_cfg.RISK_PCT_PER_TRADE:g}% risk) / (entry - stop) -- calm names get bigger "
+        f"positions, volatile names smaller, every ticket risks the same "
+        f"~{_cfg.PORTFOLIO_EUR * _cfg.RISK_PCT_PER_TRADE / 100:.0f} EUR. Capped at "
+        f"{_cfg.MAX_POSITION_PCT_OF_PORTFOLIO:.0f}% of the budget per name. The budget is "
+        "the gate: enter while free cash covers a ticket. Prices below are in the data "
+        "currency (USD for US names) -- convert at your actual EUR fill: same percentages, "
+        "same share count.",
         "",
     ]
-    if _cfg.RISK_PCT_PER_TRADE > 2.0:
-        lines += [
-            f"⚠ **Risk setting: {_cfg.RISK_PCT_PER_TRADE:g}% of the account per trade** "
-            f"(common practice: 0.5-2%). Three consecutive stop-outs cost "
-            f"~{3 * _cfg.RISK_PCT_PER_TRADE:.0f}% of the account at this setting.",
-            "",
-        ]
     lines.append(
         "| Symbol | Shares | Position value | Entry (last close) | Stop (sell if below) "
         "| Target (sell limit) | At stop | At target | Exit by |"
@@ -400,7 +395,7 @@ def _order_ticket_lines(ranked) -> List[str]:
         t = order_ticket(sig.last_close, sig.stop_loss, sig.target)
         if t is None:
             continue
-        cap = " (capped: no leverage)" if t["capped"] else ""
+        cap = " (capped: per-name limit)" if t["capped"] else ""
         lines.append(
             f"| **{sig.symbol}** | {t['shares']} | {t['position_value']:.2f}{cap} | "
             f"{sig.last_close} | {sig.stop_loss} | {sig.target} | "
@@ -486,27 +481,39 @@ def _do_today_lines(positions, as_of, hold) -> List[str]:
             )
     from . import config as _cfg
 
-    risks = []
+    risks, invested = [], 0.0
     for p in positions:
         t = p["trade"]
+        if t.entry_price and t.quantity:
+            invested += t.entry_price * t.quantity
         if t.entry_price and t.stop and t.quantity:
             risks.append((t.symbol, (t.entry_price - t.stop) * t.quantity))
-    if risks:
-        total = sum(r for _s, r in risks)
-        pct = 100 * total / _cfg.PORTFOLIO_EUR
+    if positions:
+        remaining = _cfg.PORTFOLIO_EUR - invested
         line = (
-            f"- Aggregate stop risk across open positions: "
-            f"~{total:.0f} EUR ({pct:.1f}% of the {_cfg.PORTFOLIO_EUR:.0f} EUR base)."
+            f"- Budget: ~{invested:.0f} of {_cfg.PORTFOLIO_EUR:.0f} EUR invested; "
+            f"~{remaining:.0f} EUR free."
         )
-        if pct > 3 * _cfg.RISK_PCT_PER_TRADE:
-            line += " **Above 3 positions' worth -- no new entries until something closes.**"
+        if remaining < _cfg.MIN_TICKET_EUR:
+            line += (
+                f" **Budget full -- under {_cfg.MIN_TICKET_EUR:.0f} EUR free "
+                f"(fee-efficiency floor): no new entries until something closes.**"
+            )
         lines.append(line)
-        for sym, r in risks:
-            rp = 100 * r / _cfg.PORTFOLIO_EUR
-            if rp > 1.25 * _cfg.RISK_PCT_PER_TRADE:
+        if risks:
+            total = sum(r for _s, r in risks)
+            lines.append(
+                f"- Aggregate stop risk if every stop hits: ~{total:.0f} EUR "
+                f"({100 * total / _cfg.PORTFOLIO_EUR:.1f}% of budget)."
+            )
+        cap = _cfg.PORTFOLIO_EUR * _cfg.MAX_POSITION_PCT_OF_PORTFOLIO / 100
+        for p in positions:
+            t = p["trade"]
+            if t.entry_price and t.quantity and t.entry_price * t.quantity > cap:
                 lines.append(
-                    f"  - ⚠ {sym} alone risks ~{r:.0f} EUR ({rp:.1f}%) -- sized above the "
-                    f"{_cfg.RISK_PCT_PER_TRADE:g}% setting; the ticket sizing exists for this."
+                    f"  - ⚠ {t.symbol} is sized ~{t.entry_price * t.quantity:.0f} EUR -- "
+                    f"above the {_cfg.MAX_POSITION_PCT_OF_PORTFOLIO:.0f}% per-name cap "
+                    f"({cap:.0f} EUR)."
                 )
 
     todays = [e for e in (hold.macro_events if hold else []) if e.day == as_of]

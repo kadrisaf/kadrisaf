@@ -307,12 +307,14 @@ def test_report_prints_order_tickets_with_formula_sizing_and_risk_warning():
     report = build_report(_ranked_one(), [], [], [], as_of=date(2026, 10, 6))
 
     assert "Order tickets (mechanical sizing -- NOT a recommendation" in report
-    # entry 100, stop 95 -> (portfolio * 2%) / 5 per share
+    # entry 100, stop 95: raw size (budget*2%)/5 = 900 EUR exceeds the 33%
+    # per-name cap, so the ticket is capped there
     from halal_trader import config as _cfg
 
-    shares = round(_cfg.PORTFOLIO_EUR * _cfg.RISK_PCT_PER_TRADE / 100 / 5, 4)
-    assert f"| **TST** | {shares} | {shares * 100:.2f}" in report
-    assert "Risk setting" not in report  # 2% is inside the conventional band
+    cap = _cfg.PORTFOLIO_EUR * _cfg.MAX_POSITION_PCT_OF_PORTFOLIO / 100
+    shares = round(cap / 100.0, 4)
+    assert f"| **TST** | {shares} | {cap:.2f} (capped: per-name limit)" in report
+    assert "size depends on the stock" in report
     assert "place the stop immediately" in report
 
 
@@ -368,21 +370,36 @@ def test_report_warns_on_insider_sales_for_ranked_candidates():
     assert "2 insider open-market sale(s) filed in the last 14 days (~$2.9M)" in report
 
 
-def test_do_today_prints_aggregate_risk_and_oversize_warning():
+def test_do_today_prints_budget_state_and_oversize_warning():
     from halal_trader.trades import Trade, open_positions
     from halal_trader import config as _cfg
 
-    big_risk = _cfg.PORTFOLIO_EUR * 0.04  # 4% risk on one position
+    cap = _cfg.PORTFOLIO_EUR * _cfg.MAX_POSITION_PCT_OF_PORTFOLIO / 100
+    # one position above the per-name cap, one small
     trades = [
-        Trade("BIG", "open", date(2026, 10, 12), 100.0, big_risk / 10, "EUR", 90.0, 120.0),
+        Trade("BIG", "open", date(2026, 10, 12), 100.0, 1.2 * cap / 100, "EUR", 90.0, 120.0),
         Trade("OK", "open", date(2026, 10, 12), 50.0, 0.5, "EUR", 45.0, 60.0),
     ]
     report = build_report(
         [], [], [], [], as_of=date(2026, 10, 14),
         positions=open_positions(trades, date(2026, 10, 14)),
     )
-    assert "Aggregate stop risk across open positions" in report
-    assert "BIG alone risks" in report and "sized above the" in report
+    assert "- Budget: ~" in report and "EUR free" in report
+    assert "Aggregate stop risk if every stop hits" in report
+    assert "BIG is sized" in report and "per-name cap" in report
+
+
+def test_budget_full_blocks_new_entries_line():
+    from halal_trader.trades import Trade, open_positions
+    from halal_trader import config as _cfg
+
+    qty = (_cfg.PORTFOLIO_EUR - 0.5 * _cfg.MIN_TICKET_EUR) / 100.0
+    trades = [Trade("ALL", "open", date(2026, 10, 12), 100.0, qty, "EUR", 90.0, 120.0)]
+    report = build_report(
+        [], [], [], [], as_of=date(2026, 10, 14),
+        positions=open_positions(trades, date(2026, 10, 14)),
+    )
+    assert "Budget full" in report and "no new entries until something closes" in report
 
 
 def test_tickets_print_eur_equivalents_and_sector_streak_warning():

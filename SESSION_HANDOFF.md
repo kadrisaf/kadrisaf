@@ -184,6 +184,15 @@ days from the actual entry day unless noted.
   3.0x +0.309% > 2.5x +0.275% > 2.0x +0.237% > 1.5x +0.157% > 1.0x +0.065%).
   Tighter targets raise win rate (52% -> 62%) while shrinking profit -- the
   seductive bad trade. Live params unchanged.
+- **Sizing redesigned Oct 20 (user decisions, 120 tests passing):** budget raised
+  to 2250 EUR; the BUDGET is now the gate (no fixed position count -- "budget
+  full" when free cash < MIN_TICKET_EUR 400); size per name from volatility
+  ((budget x 2%) / (entry - stop)), capped at 33% of budget per name. The
+  intermediate "12 even slices" idea was superseded same-day after the fee
+  math (187.50 EUR slices = 1.07% round-trip drag vs ~0.3% edge) -- user
+  moved to stock-dependent sizing instead. All numbers in config.py, change
+  anytime: PORTFOLIO_EUR, RISK_PCT_PER_TRADE, MAX_POSITION_PCT_OF_PORTFOLIO,
+  MIN_TICKET_EUR.
 - Still open: the fixed R:R of 1.5:1 in the table is by construction (the
   entry-timing flags are the real check); MU entry fill/date and STX fill/qty
   still unconfirmed in track_record/real_trades.csv.

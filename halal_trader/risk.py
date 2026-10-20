@@ -95,9 +95,11 @@ def order_ticket(
     at their actual fill. None when the inputs can't size a trade."""
     portfolio_eur = portfolio_eur if portfolio_eur is not None else config.PORTFOLIO_EUR
     risk_pct = risk_pct if risk_pct is not None else config.RISK_PCT_PER_TRADE
-    risk_amount = portfolio_eur * risk_pct / 100.0
     per_share_risk = entry - stop
-    if per_share_risk <= 0 or entry <= 0 or risk_amount <= 0:
+    if per_share_risk <= 0 or entry <= 0 or portfolio_eur <= 0:
+        return None
+    risk_amount = portfolio_eur * risk_pct / 100.0
+    if risk_amount <= 0:
         return None
     shares = risk_amount / per_share_risk
     capped = False
