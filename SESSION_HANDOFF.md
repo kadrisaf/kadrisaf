@@ -195,6 +195,11 @@ days from the actual entry day unless noted.
   MIN_TICKET_EUR. Refined same day: any leftover can be the last ticket
   (tickets are capped by free cash; under-400 leftovers get a fee warning,
   "budget full" only below 10 EUR).
+- **Live monitor added Oct 23** (`python -m halal_trader.live`, 123 tests
+  passing): open positions vs plan levels on live quotes -- % since entry,
+  today, distance to stop/target, clock, NEAR STOP flag. Monitoring only;
+  intraday SCREENING deliberately rejected (partial bars distort RSI/volume
+  -- the Oct 5 bug -- and intraday signals would be backtest-unvalidated).
 - Still open: the fixed R:R of 1.5:1 in the table is by construction (the
   entry-timing flags are the real check); MU entry fill/date and STX fill/qty
   still unconfirmed in track_record/real_trades.csv.
