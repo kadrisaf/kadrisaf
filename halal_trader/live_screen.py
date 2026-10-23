@@ -31,15 +31,33 @@ from .signals import evaluate_signal
 
 US_OPEN_MIN = 9 * 60 + 30     # 09:30 ET
 US_CLOSE_MIN = 16 * 60        # 16:00 ET
+EU_SUFFIXES = (".DE", ".PA", ".SW", ".VI", ".MI", ".AS", ".BR")
+EU_OPEN_MIN = 9 * 60          # 09:00 local (Europe/Berlin -- Xetra & friends)
+EU_CLOSE_MIN = 17 * 60 + 30   # 17:30
 LOG_FIELDS = ["signalled_at_utc", "symbol", "live_price", "rel_vol_est",
               "session_elapsed_pct", "stop", "target", "rsi", "score"]
 
 
-def session_elapsed_fraction(now_et_minutes: int) -> Optional[float]:
-    """Fraction of the US session elapsed; None outside market hours."""
-    if now_et_minutes < US_OPEN_MIN or now_et_minutes > US_CLOSE_MIN:
+def session_elapsed_fraction(now_minutes: int, open_min: int = US_OPEN_MIN,
+                             close_min: int = US_CLOSE_MIN) -> Optional[float]:
+    """Fraction of a session elapsed; None outside market hours."""
+    if now_minutes < open_min or now_minutes > close_min:
         return None
-    return max((now_et_minutes - US_OPEN_MIN) / (US_CLOSE_MIN - US_OPEN_MIN), 0.05)
+    return max((now_minutes - open_min) / (close_min - open_min), 0.05)
+
+
+def symbol_session(symbol: str, now_utc: "datetime") -> Optional[float]:
+    """Elapsed session fraction for the symbol's own market, or None when
+    that market is closed. EU suffixes trade 09:00-17:30 Berlin; everything
+    else is treated as US (09:30-16:00 New York)."""
+    import zoneinfo
+
+    if symbol.upper().endswith(EU_SUFFIXES):
+        local = now_utc.astimezone(zoneinfo.ZoneInfo("Europe/Berlin"))
+        return session_elapsed_fraction(local.hour * 60 + local.minute,
+                                        EU_OPEN_MIN, EU_CLOSE_MIN)
+    local = now_utc.astimezone(zoneinfo.ZoneInfo("America/New_York"))
+    return session_elapsed_fraction(local.hour * 60 + local.minute)
 
 
 def provisional_frame(history: pd.DataFrame, live_price: float,
@@ -92,14 +110,6 @@ def main(argv=None) -> int:
     args = ap.parse_args(argv)
 
     now = datetime.now(timezone.utc)
-    import zoneinfo
-
-    et = now.astimezone(zoneinfo.ZoneInfo("America/New_York"))
-    elapsed = session_elapsed_fraction(et.hour * 60 + et.minute)
-    if elapsed is None:
-        print("US market is closed -- the live screen only means anything intraday. "
-              "Use the daily report.")
-        return 0
 
     report = args.report
     if report is None:
@@ -109,12 +119,18 @@ def main(argv=None) -> int:
             return 1
         report = str(reports[-1])
     symbols = compliant_symbols_from_report(report)
-    print(f"[live_screen] {len(symbols)} compliant symbols from {report}; "
-          f"session {elapsed:.0%} elapsed", file=sys.stderr)
+    open_syms = {s: symbol_session(s, now) for s in symbols}
+    open_syms = {s: e for s, e in open_syms.items() if e is not None}
+    if not open_syms:
+        print("No market with universe symbols is open right now (US 15:30-22:00, "
+              "EU 09:00-17:30 Berlin). Use the daily report.")
+        return 0
+    print(f"[live_screen] {len(open_syms)}/{len(symbols)} compliant symbols have an "
+          f"open market", file=sys.stderr)
 
     provider = YFinanceProvider()
     hits: List[dict] = []
-    for symbol in symbols:
+    for symbol, elapsed in open_syms.items():
         try:
             import yfinance as yf
 

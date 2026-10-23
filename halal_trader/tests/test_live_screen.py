@@ -15,6 +15,20 @@ def test_session_fraction_handles_open_close_and_overnight():
     assert session_elapsed_fraction(9 * 60 + 31) == 0.05       # floor just after open
 
 
+def test_symbol_session_routes_eu_and_us_markets():
+    from datetime import datetime, timezone
+    from halal_trader.live_screen import symbol_session
+
+    # 13:00 UTC = 15:00 Berlin (EU open), 09:00 New York (US still closed)
+    t = datetime(2026, 10, 23, 13, 0, tzinfo=timezone.utc)
+    assert symbol_session("SAP.DE", t) is not None
+    assert symbol_session("AAPL", t) is None
+    # 20:00 UTC = 22:00 Berlin (EU closed), 16:00 New York (US last minute)
+    t2 = datetime(2026, 10, 23, 20, 0, tzinfo=timezone.utc)
+    assert symbol_session("SAP.DE", t2) is None
+    assert symbol_session("AAPL", t2) is not None
+
+
 def test_provisional_frame_scales_partial_volume():
     hist = _make_ohlcv(UPTREND_PATTERN, n=80)
     frame = provisional_frame(hist, live_price=123.45, partial_volume=500_000, elapsed=0.5)
