@@ -200,6 +200,13 @@ days from the actual entry day unless noted.
   today, distance to stop/target, clock, NEAR STOP flag. Monitoring only;
   intraday SCREENING deliberately rejected (partial bars distort RSI/volume
   -- the Oct 5 bug -- and intraday signals would be backtest-unvalidated).
+- **Experimental live entry screen added Oct 23** (`halal_trader/live_screen.py`,
+  126 tests passing): intraday signals on a provisional bar (live price as
+  close, partial volume scaled by session fraction), compliant list taken from
+  the latest committed report. PAPER ONLY by explicit design: signals are
+  logged to track_record/live_signals.csv for validation; it earns ticket
+  rights only if the log eventually beats the EOD screen. The daily report
+  stays the sole entry authority.
 - Still open: the fixed R:R of 1.5:1 in the table is by construction (the
   entry-timing flags are the real check); MU entry fill/date and STX fill/qty
   still unconfirmed in track_record/real_trades.csv.
