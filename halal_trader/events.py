@@ -131,3 +131,31 @@ class HoldContext:
     macro_events: List[MacroEvent]
     calendar_ok: bool  # False when the calendar file doesn't reach the window's end
     earnings: Dict[str, Optional[date]]
+    # Earnings that already happened in the recent past (the forward-only
+    # check missed ISRG reporting the day before entry, and the stale
+    # TSLA/VRSN rows whose reaction wasn't in the data yet).
+    recent_earnings: Optional[Dict[str, Optional[date]]] = None
+
+
+def last_earnings_date(
+    symbol: str, today: Optional[date] = None, lookback_days: int = 7, yf=None
+) -> Optional[date]:
+    """Most recent PAST earnings date within `lookback_days`, else None.
+    Best-effort via yfinance's earnings-dates table; never raises."""
+    from datetime import timedelta
+
+    today = today or date.today()
+    try:
+        if yf is None:
+            import yfinance as yf  # type: ignore
+        df = yf.Ticker(symbol).get_earnings_dates(limit=12)
+        if df is None or len(df) == 0:
+            return None
+        past = [
+            ts.date() for ts in df.index
+            if hasattr(ts, "date") and today - timedelta(days=lookback_days) <= ts.date() <= today
+        ]
+        return max(past) if past else None
+    except Exception as exc:
+        print(f"[events] {symbol}: last-earnings lookup failed: {exc}", file=sys.stderr)
+        return None

@@ -365,10 +365,26 @@ def _entry_context_lines(ranked, hold, positions, as_of, correlations=None, insi
                 "- ⚠ `data/event_calendar.csv` does not reach the end of this window -- "
                 "macro events could not be checked. Update the file."
             )
+        recent = hold.recent_earnings or {}
         for _screen, sig in ranked:
+            r = recent.get(sig.symbol)
+            if r is not None:
+                days_ago = (as_of - r).days
+                if days_ago <= 1:
+                    lines.append(
+                        f"- ⚠⚠ **{sig.symbol}** reported earnings {r.isoformat()} -- the market's "
+                        f"reaction is NOT fully in this report's data. **Stale row: do not act on "
+                        f"it today**; tomorrow's report prices the verdict."
+                    )
+                else:
+                    lines.append(
+                        f"- ⚠ **{sig.symbol}** reported earnings {days_ago} days ago "
+                        f"({r.isoformat()}) -- post-earnings tape; this setup IS the reaction."
+                    )
             d = hold.earnings.get(sig.symbol)
             if d is None:
-                lines.append(f"- **{sig.symbol}** earnings date unavailable -- check manually.")
+                if r is None:
+                    lines.append(f"- **{sig.symbol}** earnings date unavailable -- check manually.")
             elif first <= d <= last:
                 lines.append(f"- ⚠ **{sig.symbol}** reports earnings on {d.isoformat()} -- INSIDE the hold window.")
             else:

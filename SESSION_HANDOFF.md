@@ -207,6 +207,12 @@ days from the actual entry day unless noted.
   logged to track_record/live_signals.csv for validation; it earns ticket
   rights only if the log eventually beats the EOD screen. The daily report
   stays the sole entry authority.
+- **Recent-earnings lookback added Oct 23** (129 tests passing), after three
+  misses in one week (ISRG reported the day before entry; TSLA and VRSN rows
+  were stale pre-reaction): `events.last_earnings_date` checks the past 7
+  days per candidate; the report prints "Stale row -- do not act today" when
+  earnings were <=1 day ago and "post-earnings tape" otherwise. Verified
+  live: ISRG->Oct 20, TSLA->Oct 21, VRSN->Oct 22 all detected.
 - Still open: the fixed R:R of 1.5:1 in the table is by construction (the
   entry-timing flags are the real check); MU entry fill/date and STX fill/qty
   still unconfirmed in track_record/real_trades.csv.

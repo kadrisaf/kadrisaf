@@ -429,3 +429,22 @@ def test_last_leftover_can_be_a_ticket_and_is_capped_by_free_cash():
     assert "| **TST** | 1.5 | 150.00 (capped: per-name limit)" in report
     assert "below the 400 EUR fee-efficiency floor" in report
     assert "Budget full" not in report  # 150 EUR left is still investable
+
+
+def test_report_flags_recent_and_same_day_earnings():
+    report = build_report(
+        _ranked_one("TST"), [], [], [], as_of=date(2026, 10, 22),
+        hold=_hold(window_start=date(2026, 10, 22), macro_events=[], calendar_ok=True,
+                   earnings={"TST": date(2027, 1, 21)},
+                   recent_earnings={"TST": date(2026, 10, 20)}),
+    )
+    assert "reported earnings 2 days ago (2026-10-20) -- post-earnings tape" in report
+
+    stale = build_report(
+        _ranked_one("TST"), [], [], [], as_of=date(2026, 10, 22),
+        hold=_hold(window_start=date(2026, 10, 22), macro_events=[], calendar_ok=True,
+                   earnings={"TST": None},
+                   recent_earnings={"TST": date(2026, 10, 21)}),
+    )
+    assert "Stale row: do not act on it today" in stale
+    assert "earnings date unavailable" not in stale  # recent date supersedes the unknown-next

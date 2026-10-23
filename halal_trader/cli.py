@@ -26,6 +26,7 @@ from .events import (
     calendar_covers,
     events_in_window,
     hold_window,
+    last_earnings_date,
     load_event_calendar,
     next_earnings_date,
 )
@@ -240,6 +241,7 @@ def main(argv: List[str] | None = None) -> int:
         macro_events=events_in_window(calendar, window),
         calendar_ok=calendar_covers(calendar, window),
         earnings={sig.symbol: next_earnings_date(sig.symbol, as_of) for _s, sig in ranked},
+        recent_earnings={sig.symbol: last_earnings_date(sig.symbol, as_of) for _s, sig in ranked},
     )
 
     # Correlation between each candidate and the open positions: "this is

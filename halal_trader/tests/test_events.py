@@ -67,3 +67,39 @@ def test_next_earnings_date_picks_earliest_future_date():
 def test_next_earnings_date_unknown_or_failing_is_none():
     assert ev.next_earnings_date("X", date(2026, 10, 5), yf=_FakeYf({})) is None
     assert ev.next_earnings_date("X", date(2026, 10, 5), yf=_FakeYf(boom=True)) is None
+
+
+class _FakeEarningsDF:
+    def __init__(self, dates):
+        import pandas as pd
+        self.index = pd.DatetimeIndex(dates)
+    def __len__(self):
+        return len(self.index)
+
+
+class _FakeTickerED:
+    def __init__(self, dates):
+        self._dates = dates
+    def get_earnings_dates(self, limit=12):
+        return _FakeEarningsDF(self._dates)
+
+
+class _FakeYfED:
+    def __init__(self, dates):
+        self._dates = dates
+    def Ticker(self, s):
+        return _FakeTickerED(self._dates)
+
+
+def test_last_earnings_date_finds_recent_past_only():
+    yf = _FakeYfED(["2026-10-21", "2026-07-21", "2027-01-21"])
+    assert ev.last_earnings_date("ISRG", date(2026, 10, 23), yf=yf) == date(2026, 10, 21)
+    # outside the 7-day lookback -> None
+    assert ev.last_earnings_date("ISRG", date(2026, 11, 15), yf=yf) is None
+
+
+def test_last_earnings_date_failure_is_none():
+    class Boom:
+        def Ticker(self, s):
+            raise RuntimeError("down")
+    assert ev.last_earnings_date("X", date(2026, 10, 23), yf=Boom()) is None
