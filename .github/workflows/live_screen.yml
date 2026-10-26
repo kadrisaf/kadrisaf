@@ -1,0 +1,46 @@
+name: Live shadow screen
+
+# Intraday scans of the EXPERIMENTAL paper-only live screen (see
+# halal_trader/live_screen.py). Signals are appended to
+# track_record/live_signals.csv and committed -- building the validation
+# record that decides whether intraday entry ever earns ticket rights.
+# The script gates per-market itself (EU 09:00-17:30 Berlin, US session),
+# so a run outside hours just exits without output.
+on:
+  workflow_dispatch: {}
+  schedule:
+    - cron: "0 10 * * 1-5"   # ~11:00 Berlin -- EU session scan
+    - cron: "0 15 * * 1-5"   # 10/11 ET -- US morning scan
+    - cron: "0 19 * * 1-5"   # 14/15 ET -- US afternoon scan
+
+permissions:
+  contents: write
+
+concurrency:
+  group: live-screen
+  cancel-in-progress: false
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run the shadow screen
+        run: python -m halal_trader.live_screen
+
+      - name: Commit any new signals
+        run: |
+          git config user.name "halal-trader-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add track_record/live_signals.csv
+          git diff --cached --quiet || git commit -m "Shadow signals $(date -u +%Y-%m-%dT%H:%M)Z"
+          git push
