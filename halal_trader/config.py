@@ -44,6 +44,20 @@ EXCLUDED_SECTOR_KEYWORDS = [
     "aerospace & defense",
 ]
 
+# Deep business-activity scan (STRICT mode, user decision 2026-10-27): the
+# company's full business summary is scanned for these words too, not just
+# the sector/industry label -- the label hid Honeywell's aerospace/defense
+# division. Word-boundary, case-insensitive. Deliberately conservative:
+# a false exclusion is acceptable, a false pass is not. A symbol wrongly
+# caught here can be cleared via data/shariah_overrides.csv (action=allow)
+# after a certified check.
+SUMMARY_EXCLUDED_KEYWORDS = [
+    "defense", "defence", "military", "weapon", "missile", "munition",
+    "tobacco", "casino", "gambling", "betting",
+    "brewer", "distiller", "winery", "alcoholic",
+    "pork",
+]
+
 # Financial ratio thresholds (each ratio must be STRICTLY BELOW this value).
 # Denominator is market capitalization, per the common DJIM/S&P methodology.
 MAX_DEBT_TO_MARKET_CAP = 0.33

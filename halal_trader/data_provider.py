@@ -64,6 +64,7 @@ class CompanyFundamentals:
     cash_and_short_term_investments: Optional[float]
     receivables: Optional[float]
     currency: Optional[str] = None
+    business_summary: Optional[str] = None
 
 
 @dataclass
@@ -145,6 +146,7 @@ class YFinanceProvider:
                 cash_and_short_term_investments=total_cash,
                 receivables=receivables,
                 currency=info.get("currency"),
+                business_summary=info.get("longBusinessSummary"),
             )
         except Exception as exc:
             raise DataUnavailable(f"fundamentals unavailable for {symbol}: {exc}") from exc

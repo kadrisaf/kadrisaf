@@ -15,7 +15,25 @@ from dataclasses import dataclass, field
 from typing import List, Optional
 
 from . import config
+from pathlib import Path
+
 from .data_provider import CompanyFundamentals
+
+
+def load_overrides(path: str = "data/shariah_overrides.csv"):
+    """symbol -> {action: exclude|allow, reason}. Missing file -> {}."""
+    import csv
+
+    p = Path(path)
+    if not p.exists():
+        return {}
+    out = {}
+    for row in csv.DictReader(p.open()):
+        sym = (row.get("symbol") or "").strip().upper()
+        action = (row.get("action") or "").strip().lower()
+        if sym and action in ("exclude", "allow"):
+            out[sym] = {"action": action, "reason": (row.get("reason") or "").strip()}
+    return out
 
 
 @dataclass
@@ -29,8 +47,13 @@ class ScreenResult:
     receivables_ratio: Optional[float] = None
 
 
-def screen_company(fundamentals: CompanyFundamentals) -> ScreenResult:
-    """Apply the sector-exclusion and financial-ratio screens to one company."""
+def screen_company(
+    fundamentals: CompanyFundamentals, summary_cleared: bool = False
+) -> ScreenResult:
+    """Apply the sector-exclusion and financial-ratio screens to one company.
+    `summary_cleared=True` (from a manual allow-override after a certified
+    check) skips only the deep business-summary keyword scan -- the label
+    screen and the financial ratios always apply."""
     reasons: List[str] = []
     notes: List[str] = []
 
@@ -48,6 +71,19 @@ def screen_company(fundamentals: CompanyFundamentals) -> ScreenResult:
                     f"matches keyword '{keyword}'"
                 )
                 break  # one match is enough to disqualify
+
+    # -- 1b. Deep activity scan over the business summary (strict mode) --
+    import re as _re
+
+    summary = (fundamentals.business_summary or "").lower()
+    if summary and not summary_cleared:
+        for keyword in config.SUMMARY_EXCLUDED_KEYWORDS:
+            if _re.search(rf"\b{keyword}", summary):
+                reasons.append(
+                    f"business summary mentions '{keyword}' -- excluded pending a "
+                    f"certified check (clear via data/shariah_overrides.csv)"
+                )
+                break
 
     # -- 2. Financial ratio screens (denominator = market cap) ---------
     market_cap = fundamentals.market_cap

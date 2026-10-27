@@ -39,8 +39,15 @@ updated after each live cycle with what worked and what didn't.
 2. **Shariah screen** (`shariah_screen.py`) — excludes anything in a haram
    sector (conventional banks/insurance, alcohol, gambling, tobacco, pork,
    adult content, weapons, by default — edit the keyword list in
-   `config.py`), then checks three financial ratios (debt, interest-bearing
-   cash, receivables — each must stay under 33% of market cap).
+   `config.py`), scans each company's full business summary for excluded
+   activities the industry label hides (strict mode: a match excludes the
+   name pending a certified check), applies `data/shariah_overrides.csv`
+   (hand-maintained hard excludes and certified-check clearances), then
+   checks three financial ratios (debt, interest-bearing cash,
+   receivables — each must stay under 33% of market cap). The ratios are
+   measured against market capitalization, so compliance can genuinely
+   drift in and out as prices move — that is the standard methodology,
+   not a bug.
 3. **Trade-setup signal** (`signals.py`) — of the names that pass, keeps
    only those in a confirmed short-term uptrend (price > 20-day SMA >
    50-day SMA, 20-day SMA rising) with RSI(14) in a healthy 45–65 band

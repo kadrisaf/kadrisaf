@@ -36,7 +36,7 @@ from .macro import YFinanceMacroProvider
 from .report import build_report
 from .risk import correlation_flags
 from .sentiment import AnthropicSentimentTagger, SentimentTag
-from .shariah_screen import ScreenResult, screen_company
+from .shariah_screen import ScreenResult, load_overrides, screen_company
 from .signals import TradeSignal, evaluate_signal
 from .trades import load_trades, open_positions, plan_vs_real, sector_streaks, summarize_trades, weekly_review
 from .track_record import (
@@ -79,6 +79,7 @@ def run(
     now), or skipped (data unavailable). Every symbol lands in exactly one
     bucket -- nothing is silently dropped."""
     provider = provider or YFinanceProvider()
+    overrides = load_overrides()
     ranked: List[Tuple[ScreenResult, TradeSignal]] = []
     screened_out: List[ScreenResult] = []
     not_qualifying: List[Tuple[ScreenResult, TradeSignal]] = []
@@ -94,7 +95,16 @@ def run(
 
         if sectors_out is not None:
             sectors_out[symbol] = fundamentals.sector
-        screen = screen_company(fundamentals)
+        ov = overrides.get(symbol.upper())
+        if ov and ov["action"] == "exclude":
+            screened_out.append(ScreenResult(
+                symbol=symbol, compliant=False,
+                reasons=[f"manual override: {ov['reason']}"],
+            ))
+            continue
+        screen = screen_company(
+            fundamentals, summary_cleared=bool(ov and ov["action"] == "allow")
+        )
         if not screen.compliant:
             screened_out.append(screen)
             continue

@@ -1,0 +1,7 @@
+symbol,action,reason,checked
+HON,exclude,"Honeywell Aerospace division supplies military/defense programs; industry label hides it",2026-10-27 pending certified check
+PLTR,exclude,"major defense/intelligence contracts; software label hides it",2026-10-27 pending certified check
+MELI,exclude,"Mercado Credito lending arm earns interest income",2026-10-27 pending certified check
+SHOP,exclude,"Shopify Capital merchant lending arm",2026-10-27 pending certified check
+ABNB,exclude,"interest earned on guest-payment float is material",2026-10-27 pending certified check
+BKNG,exclude,"interest on booking float; commonly rated non-compliant by certified apps",2026-10-27 pending certified check

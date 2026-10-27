@@ -213,6 +213,14 @@ days from the actual entry day unless noted.
   days per candidate; the report prints "Stale row -- do not act today" when
   earnings were <=1 day ago and "post-earnings tape" otherwise. Verified
   live: ISRG->Oct 20, TSLA->Oct 21, VRSN->Oct 22 all detected.
+- **Strict halal mode Oct 27 (user decision, 133 tests passing):** (a) deep
+  activity scan -- full business summary checked against
+  SUMMARY_EXCLUDED_KEYWORDS (word-boundary; conservative by design); catches
+  PLTR live, misses HON (Yahoo's HON summary omits defense) which is why (b)
+  data/shariah_overrides.csv hard-excludes HON, PLTR, MELI, SHOP, ABNB, BKNG
+  pending the user's certified checks; action=allow clears a false positive
+  past the summary scan only (label screen + ratios always apply). User can
+  flip any row after checking Zoya/Musaffa.
 - Still open: the fixed R:R of 1.5:1 in the table is by construction (the
   entry-timing flags are the real check); MU entry fill/date and STX fill/qty
   still unconfirmed in track_record/real_trades.csv.

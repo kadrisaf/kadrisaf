@@ -76,3 +76,44 @@ def test_missing_data_is_noted_but_does_not_fail_the_screen():
 
     assert result.compliant is True
     assert any("market cap" in n for n in result.notes)
+
+
+def _fund_with_summary(summary, **kw):
+    from halal_trader.data_provider import CompanyFundamentals
+
+    base = dict(symbol="X", sector="Industrials", industry="Specialty Industrial Machinery",
+                market_cap=1e11, total_debt=1e9, cash_and_short_term_investments=1e9,
+                receivables=1e9, currency="USD", business_summary=summary)
+    base.update(kw)
+    return CompanyFundamentals(**base)
+
+
+def test_summary_scan_catches_defense_hidden_by_the_label():
+    from halal_trader.shariah_screen import screen_company
+
+    r = screen_company(_fund_with_summary(
+        "The company supplies avionics and defense systems to military programs."))
+    assert r.compliant is False
+    assert any("business summary mentions 'defense'" in x for x in r.reasons)
+
+
+def test_summary_allow_override_skips_only_the_summary_scan():
+    from halal_trader.shariah_screen import screen_company
+
+    f = _fund_with_summary("Provides defense-grade cybersecurity software.")
+    assert screen_company(f).compliant is False
+    assert screen_company(f, summary_cleared=True).compliant is True
+    # ratios still apply even when summary-cleared
+    f2 = _fund_with_summary("Provides defense-grade cybersecurity software.", total_debt=5e10)
+    assert screen_company(f2, summary_cleared=True).compliant is False
+
+
+def test_overrides_loader(tmp_path):
+    from halal_trader.shariah_screen import load_overrides
+
+    p = tmp_path / "ov.csv"
+    p.write_text('symbol,action,reason,checked\nHON,exclude,"defense division",x\ncrwd,allow,"cleared on Zoya",x\nBAD,maybe,,x\n')
+    ov = load_overrides(str(p))
+    assert ov["HON"]["action"] == "exclude"
+    assert ov["CRWD"]["action"] == "allow"
+    assert "BAD" not in ov
