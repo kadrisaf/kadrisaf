@@ -1,10 +1,15 @@
-"""Tests for the live-screen validation scorer (live_validate.py)."""
+"""Tests for the live-screen validation scorer (live_validate.py) and the
+live screen's earnings filter (live_screen.earnings_note)."""
+
+from datetime import date
 
 import pandas as pd
 import pytest
 
+from halal_trader.live_screen import earnings_note
 from halal_trader.live_validate import (
     LiveSignal,
+    build_validation_report,
     first_per_symbol_day,
     score_signal,
     summarize,
@@ -166,3 +171,70 @@ class TestSummarize:
         assert s["count"] == 2 and s["pending"] == 1
         assert s["wins"] == 1 and s["win_rate"] == 50.0
         assert s["by_reason"] == {"target": 1, "stop": 1}
+
+
+class TestEarningsFilter:
+    """live_screen.earnings_note: the check added after the NOW collapse."""
+
+    def test_earnings_inside_window_flagged(self):
+        # Entry Thu 2026-11-05; 5-trading-day window ends Wed 2026-11-11.
+        note = earnings_note(
+            "NOW", date(2026, 11, 5), max_days=5,
+            next_fn=lambda s, t: date(2026, 11, 10),
+        )
+        assert "earnings 2026-11-10" in note
+
+    def test_earnings_on_last_window_day_flagged(self):
+        note = earnings_note(
+            "X", date(2026, 11, 5), max_days=5,
+            next_fn=lambda s, t: date(2026, 11, 11),
+        )
+        assert note != ""
+
+    def test_earnings_after_window_clean(self):
+        note = earnings_note(
+            "X", date(2026, 11, 5), max_days=5,
+            next_fn=lambda s, t: date(2026, 11, 12),
+        )
+        assert note == ""
+
+    def test_unknown_earnings_date_clean(self):
+        # Same best-effort behavior as the daily report: unknown is not
+        # a block, the reader is told to check manually.
+        assert earnings_note("X", date(2026, 11, 5), max_days=5,
+                             next_fn=lambda s, t: None) == ""
+
+
+class TestFlaggedSplit:
+    """Validation report grades earnings-flagged signals separately."""
+
+    def _outcomes(self):
+        win_hist = _frame([
+            ("2026-11-05", 100, 101, 99, 100),
+            ("2026-11-06", 100, 111, 99, 110),
+        ])
+        clean = score_signal(
+            _sig(symbol="CLEAN", ts="2026-11-05T15:00:00Z"),
+            win_hist, max_days=5, slippage_pct=0.0)
+        flagged_sig = LiveSignal(
+            signalled_at_utc="2026-11-05T15:00:00Z", symbol="FLAG",
+            live_price=100.0, stop=95.0, target=110.0,
+            earnings_note="earnings 2026-11-09 inside 5-day hold window")
+        flagged = score_signal(flagged_sig, _frame([
+            ("2026-11-05", 100, 101, 99, 94),
+        ]), max_days=5, slippage_pct=0.0)
+        return [clean, flagged]
+
+    def test_headline_excludes_flagged(self):
+        report = build_validation_report(
+            self._outcomes(), [], None, date(2026, 11, 5))
+        # Headline (clean only): 1 resolved, 1 win.
+        assert "Shadow signals: 1 resolved, 1 wins (100.0%)" in report
+        # Flagged group graded separately.
+        assert "what the filter excluded" in report
+        assert "FLAG (earnings-flagged)" in report
+
+    def test_flagged_summary_shows_the_loss(self):
+        report = build_validation_report(
+            self._outcomes(), [], None, date(2026, 11, 5))
+        assert "Earnings-flagged signals (what the filter excluded): 1 resolved, 0 wins" in report

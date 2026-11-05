@@ -16,6 +16,13 @@ shows it clearly beating the end-of-day screen over the same dates.**
 
 All logged rows (re-scans of the same setup included): 32 resolved, 18 wins (56.2%), avg -0.24%/trade, 25 still pending [exits: stop 6, target 9, time_stop 17]
 
+Signals logged before 2026-11-05 predate the earnings filter and
+are graded as-is -- the system really did signal them. Rows the
+filter has flagged since then are logged for the counterfactual
+and graded separately below, never as qualifiers.
+
+Earnings-flagged signals (what the filter excluded): no resolved trades yet
+
 ## Per-signal outcomes (deduped)
 
 | Signalled | Symbol | Entry | Stop | Target | Exit | Reason | Return |

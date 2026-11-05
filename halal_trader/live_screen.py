@@ -26,7 +26,9 @@ from typing import List, Optional
 
 import pandas as pd
 
+from . import config
 from .data_provider import YFinanceProvider
+from .events import hold_window, next_earnings_date
 from .signals import evaluate_signal
 
 US_OPEN_MIN = 9 * 60 + 30     # 09:30 ET
@@ -35,7 +37,8 @@ EU_SUFFIXES = (".DE", ".PA", ".SW", ".VI", ".MI", ".AS", ".BR")
 EU_OPEN_MIN = 9 * 60          # 09:00 local (Europe/Berlin -- Xetra & friends)
 EU_CLOSE_MIN = 17 * 60 + 30   # 17:30
 LOG_FIELDS = ["signalled_at_utc", "symbol", "live_price", "rel_vol_est",
-              "session_elapsed_pct", "stop", "target", "rsi", "score"]
+              "session_elapsed_pct", "stop", "target", "rsi", "score",
+              "earnings_note"]
 
 
 def session_elapsed_fraction(now_minutes: int, open_min: int = US_OPEN_MIN,
@@ -73,6 +76,26 @@ def provisional_frame(history: pd.DataFrame, live_price: float,
         index=pd.DatetimeIndex([history.index[-1] + pd.Timedelta(days=1)]),
     )
     return pd.concat([history, today])
+
+
+def earnings_note(symbol: str, today, max_days: int = None,
+                  next_fn=next_earnings_date) -> str:
+    """Non-empty when the symbol's next earnings date falls inside the
+    hold window of an entry made today -- the exact check the daily report
+    runs (protocol factor 4) and the one the live screen lacked when it
+    signalled NOW twice straight into a ~20% earnings collapse (validated
+    2026-11-05: that miss alone flipped the shadow book negative). Unknown
+    earnings dates return "" -- same best-effort behavior as the report,
+    which then tells the reader to check manually."""
+    if max_days is None:
+        max_days = config.DEFAULT_SIGNAL_PARAMS.max_holding_days
+    nxt = next_fn(symbol, today)
+    if nxt is None:
+        return ""
+    window = hold_window(today, max_days)
+    if window[0] <= nxt <= window[-1]:
+        return f"earnings {nxt.isoformat()} inside {max_days}-day hold window"
+    return ""
 
 
 def compliant_symbols_from_report(report_path: str) -> List[str]:
@@ -146,6 +169,12 @@ def main(argv=None) -> int:
             frame = provisional_frame(hist, live_price, partial_vol, elapsed)
             sig = evaluate_signal(symbol, frame)
             if sig.qualifies:
+                # Earnings check only for names that qualified -- one
+                # best-effort calendar fetch each. Flagged signals are
+                # still LOGGED (the shadow book needs the counterfactual
+                # to measure what the filter saves) but never displayed
+                # as qualifiers.
+                note = earnings_note(symbol, now.date())
                 hits.append({
                     "signalled_at_utc": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
                     "symbol": symbol, "live_price": round(live_price, 4),
@@ -153,19 +182,29 @@ def main(argv=None) -> int:
                     "session_elapsed_pct": round(100 * elapsed, 1),
                     "stop": sig.stop_loss, "target": sig.target,
                     "rsi": sig.rsi, "score": sig.score,
+                    "earnings_note": note,
                 })
         except Exception as exc:
             print(f"[live_screen] {symbol}: {exc}", file=sys.stderr)
 
-    if not hits:
+    clean = [h for h in hits if not h["earnings_note"]]
+    flagged = [h for h in hits if h["earnings_note"]]
+    if not clean:
         print("No provisional qualifiers right now.")
     else:
         print("PROVISIONAL qualifiers (PAPER ONLY -- unvalidated, no tickets):")
-        for h in hits:
+        for h in clean:
             print(f"  {h['symbol']}: live {h['live_price']} | est rel-vol {h['rel_vol_est']}x "
                   f"| RSI {h['rsi']} | stop {h['stop']} | target {h['target']}")
+    if flagged:
+        print("FILTERED -- earnings inside the hold window (logged for "
+              "validation only, NOT qualifiers):")
+        for h in flagged:
+            print(f"  {h['symbol']}: {h['earnings_note']}")
+    if hits:
         log_signals(hits, args.log)
-        print(f"Logged {len(hits)} signal(s) to {args.log} for later validation.")
+        print(f"Logged {len(hits)} signal(s) ({len(flagged)} earnings-flagged) "
+              f"to {args.log} for later validation.")
     return 0
 
 

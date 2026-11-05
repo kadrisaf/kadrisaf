@@ -58,6 +58,12 @@ class LiveSignal:
     live_price: float
     stop: float
     target: float
+    # Non-empty when the live screen's earnings filter (added 2026-11-05,
+    # after the NOW collapse) flagged the signal: logged for the
+    # counterfactual, never shown as a qualifier. Rows before the filter
+    # existed have "" -- they are graded as-is, which is honest: the
+    # system really did signal them.
+    earnings_note: str = ""
 
     @property
     def signal_date(self) -> date:
@@ -92,6 +98,7 @@ def load_signals(path: str) -> List[LiveSignal]:
                     live_price=float(row["live_price"]),
                     stop=float(row["stop"]),
                     target=float(row["target"]),
+                    earnings_note=(row.get("earnings_note") or "").strip(),
                 ))
             except (KeyError, ValueError) as exc:
                 print(f"[live_validate] skipping malformed row {row}: {exc}",
@@ -253,7 +260,10 @@ def build_validation_report(
     benchmark: Optional[Dict],
     as_of: date,
 ) -> str:
-    ded_sum = summarize(deduped)
+    clean = [o for o in deduped if not o.signal.earnings_note]
+    flagged = [o for o in deduped if o.signal.earnings_note]
+    ded_sum = summarize(clean)
+    flag_sum = summarize(flagged)
     all_sum = summarize(all_rows)
     lines = [
         f"# Live-screen validation -- {as_of.isoformat()}",
@@ -275,6 +285,14 @@ def build_validation_report(
         f"All logged rows (re-scans of the same setup included): "
         f"{_fmt_summary(all_sum)}",
         "",
+        "Signals logged before 2026-11-05 predate the earnings filter and",
+        "are graded as-is -- the system really did signal them. Rows the",
+        "filter has flagged since then are logged for the counterfactual",
+        "and graded separately below, never as qualifiers.",
+        "",
+        f"Earnings-flagged signals (what the filter excluded): "
+        f"{_fmt_summary(flag_sum)}",
+        "",
         "## Per-signal outcomes (deduped)",
         "",
         "| Signalled | Symbol | Entry | Stop | Target | Exit | Reason | Return |",
@@ -282,15 +300,16 @@ def build_validation_report(
     ]
     for o in sorted(deduped, key=lambda o: (o.signal.signal_date, o.signal.symbol)):
         s = o.signal
+        sym = f"{s.symbol} (earnings-flagged)" if s.earnings_note else s.symbol
         if o.resolved:
             lines.append(
-                f"| {s.signal_date} | {s.symbol} | {s.live_price} | {s.stop} "
+                f"| {s.signal_date} | {sym} | {s.live_price} | {s.stop} "
                 f"| {s.target} | {o.exit_date} ({o.exit_price}) "
                 f"| {o.exit_reason} | {o.return_pct:+.2f}% |"
             )
         else:
             lines.append(
-                f"| {s.signal_date} | {s.symbol} | {s.live_price} | {s.stop} "
+                f"| {s.signal_date} | {sym} | {s.live_price} | {s.stop} "
                 f"| {s.target} | -- | pending | -- |"
             )
     lines += [
