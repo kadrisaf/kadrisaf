@@ -64,6 +64,11 @@ class LiveSignal:
     # existed have "" -- they are graded as-is, which is honest: the
     # system really did signal them.
     earnings_note: str = ""
+    # Logged features, kept for the descriptive breakdowns only -- they
+    # never feed back into scoring or ranking.
+    rel_vol_est: Optional[float] = None
+    session_elapsed_pct: Optional[float] = None
+    score: Optional[float] = None
 
     @property
     def signal_date(self) -> date:
@@ -84,6 +89,13 @@ class SignalOutcome:
     return_pct: Optional[float] = None
 
 
+def _opt_float(raw: Optional[str]) -> Optional[float]:
+    try:
+        return float(raw) if raw not in (None, "") else None
+    except ValueError:
+        return None
+
+
 def load_signals(path: str) -> List[LiveSignal]:
     p = Path(path)
     if not p.exists():
@@ -99,6 +111,9 @@ def load_signals(path: str) -> List[LiveSignal]:
                     stop=float(row["stop"]),
                     target=float(row["target"]),
                     earnings_note=(row.get("earnings_note") or "").strip(),
+                    rel_vol_est=_opt_float(row.get("rel_vol_est")),
+                    session_elapsed_pct=_opt_float(row.get("session_elapsed_pct")),
+                    score=_opt_float(row.get("score")),
                 ))
             except (KeyError, ValueError) as exc:
                 print(f"[live_validate] skipping malformed row {row}: {exc}",
@@ -175,26 +190,175 @@ def _resolved(sig: LiveSignal, exit_date: date, exit_price: float,
     )
 
 
-def score_all(
+def fetch_histories(
     signals: List[LiveSignal], provider: DataProvider,
-) -> List[SignalOutcome]:
-    outcomes: List[SignalOutcome] = []
+) -> Dict[str, pd.DataFrame]:
     histories: Dict[str, pd.DataFrame] = {}
     for sig in signals:
-        if sig.symbol not in histories:
-            try:
-                histories[sig.symbol] = provider.get_price_history(
-                    sig.symbol, period="6mo"
-                )
-            except DataUnavailable as exc:
-                print(f"[live_validate] {sig.symbol}: {exc}", file=sys.stderr)
-                histories[sig.symbol] = pd.DataFrame()
-        hist = histories[sig.symbol]
+        if sig.symbol in histories:
+            continue
+        try:
+            histories[sig.symbol] = provider.get_price_history(
+                sig.symbol, period="6mo"
+            )
+        except DataUnavailable as exc:
+            print(f"[live_validate] {sig.symbol}: {exc}", file=sys.stderr)
+            histories[sig.symbol] = pd.DataFrame()
+    return histories
+
+
+def score_all(
+    signals: List[LiveSignal],
+    provider: DataProvider = None,
+    histories: Dict[str, pd.DataFrame] = None,
+) -> List[SignalOutcome]:
+    if histories is None:
+        histories = fetch_histories(signals, provider)
+    outcomes: List[SignalOutcome] = []
+    for sig in signals:
+        hist = histories.get(sig.symbol, pd.DataFrame())
         if hist.empty:
             outcomes.append(SignalOutcome(signal=sig, resolved=False))
             continue
         outcomes.append(score_signal(sig, hist))
     return outcomes
+
+
+def close_entry_outcome(
+    sig: LiveSignal,
+    history: pd.DataFrame,
+    max_days: int = None,
+    slippage_pct: float = None,
+) -> Optional[SignalOutcome]:
+    """The EOD counterfactual of the same signal: entry at the signal
+    day's CLOSE instead of the logged live price, with the SAME stop and
+    target levels, so the only difference measured is the entry price and
+    time. Returns None when the pair isn't comparable: no completed bar
+    for the signal day yet, or the close already sits at/beyond the stop
+    or target -- an end-of-day process would simply not have entered
+    there, so there is no honest pairing."""
+    if max_days is None:
+        max_days = config.DEFAULT_SIGNAL_PARAMS.max_holding_days
+    if slippage_pct is None:
+        slippage_pct = config.EXIT_SLIPPAGE_PCT
+
+    dates = history.index.date
+    day1 = history[dates == sig.signal_date]
+    if day1.empty:
+        return None
+    close = float(day1["Close"].iloc[-1])
+    if close <= sig.stop or close >= sig.target:
+        return None
+
+    subsequent = history[dates > sig.signal_date]
+    if subsequent.empty:
+        return SignalOutcome(signal=sig, resolved=False)
+    outcome = simulate_exit(
+        subsequent, sig.stop, sig.target, max_days - 1, slippage_pct
+    )
+    if outcome is None:
+        return SignalOutcome(signal=sig, resolved=False)
+    exit_date, exit_price, reason = outcome
+    return SignalOutcome(
+        signal=sig,
+        resolved=True,
+        exit_date=exit_date,
+        exit_price=round(float(exit_price), 4),
+        exit_reason=reason,
+        return_pct=round((exit_price - close) / close * 100, 2),
+    )
+
+
+def entry_value_study(
+    signals: List[LiveSignal], histories: Dict[str, pd.DataFrame],
+) -> Optional[Dict]:
+    """What is intraday entry actually worth? Each signal is graded twice
+    -- from the logged live price and from that day's close, identical
+    stop/target levels and hold window -- and only pairs where BOTH
+    resolve are compared. The average per-trade difference is the entire
+    value of entering intraday instead of reading the evening report.
+
+    Not comparable (and counted as such): the live entry resolved on the
+    signal day itself (an EOD process would never have been in the
+    trade), or the close was already beyond the levels."""
+    pairs = []
+    n_not_comparable = 0
+    n_pending = 0
+    for sig in signals:
+        hist = histories.get(sig.symbol, pd.DataFrame())
+        if hist.empty:
+            continue
+        live = score_signal(sig, hist)
+        if live.resolved and live.exit_date == sig.signal_date:
+            n_not_comparable += 1
+            continue
+        eod = close_entry_outcome(sig, hist)
+        if eod is None:
+            n_not_comparable += 1
+            continue
+        if not (live.resolved and eod.resolved):
+            n_pending += 1
+            continue
+        pairs.append((live.return_pct, eod.return_pct))
+    if not pairs:
+        return None
+    deltas = sorted(l - e for l, e in pairs)
+    mid = len(deltas) // 2
+    median = (deltas[mid] if len(deltas) % 2
+              else (deltas[mid - 1] + deltas[mid]) / 2)
+    return {
+        "pairs": len(pairs),
+        "not_comparable": n_not_comparable,
+        "pending": n_pending,
+        "avg_live_pct": round(sum(l for l, _ in pairs) / len(pairs), 2),
+        "avg_eod_pct": round(sum(e for _, e in pairs) / len(pairs), 2),
+        "avg_delta_pct": round(sum(deltas) / len(deltas), 2),
+        "median_delta_pct": round(median, 2),
+    }
+
+
+# Feature buckets for the descriptive breakdowns. Two buckets per feature
+# on purpose: with tens of trades, finer splits are pure noise.
+BREAKDOWN_BUCKETS = [
+    ("score", lambda s: s.score,
+     lambda v, cut: "high" if v >= cut else "low", "median"),
+    ("rel_vol_est", lambda s: s.rel_vol_est,
+     lambda v, cut: ">=1.5x" if v >= 1.5 else "<1.5x", 1.5),
+    ("session_elapsed_pct", lambda s: s.session_elapsed_pct,
+     lambda v, cut: "late session" if v >= 50 else "early session", 50),
+]
+
+
+def bucket_breakdowns(outcomes: List[SignalOutcome]) -> List[Dict]:
+    """Descriptive splits of resolved outcomes by the logged features.
+    NEVER rules: with this few, correlated trades, any bucket can look
+    good by chance, and three features x two buckets is already six
+    comparisons. A split only graduates into a filter via the same
+    logged-counterfactual process as the earnings filter."""
+    resolved = [o for o in outcomes
+                if o.resolved and o.return_pct is not None]
+    rows: List[Dict] = []
+    for name, getter, labeler, cut in BREAKDOWN_BUCKETS:
+        with_val = [o for o in resolved if getter(o.signal) is not None]
+        if len(with_val) < 2:
+            continue
+        if cut == "median":
+            vals = sorted(getter(o.signal) for o in with_val)
+            cut = vals[len(vals) // 2]
+        groups: Dict[str, List[SignalOutcome]] = {}
+        for o in with_val:
+            groups.setdefault(labeler(getter(o.signal), cut), []).append(o)
+        for label, members in sorted(groups.items()):
+            wins = sum(1 for o in members if o.return_pct > 0)
+            rows.append({
+                "feature": name,
+                "bucket": label,
+                "n": len(members),
+                "win_rate": round(100 * wins / len(members), 1),
+                "avg_return_pct": round(
+                    sum(o.return_pct for o in members) / len(members), 2),
+            })
+    return rows
 
 
 def summarize(outcomes: List[SignalOutcome]) -> Optional[Dict]:
@@ -259,6 +423,8 @@ def build_validation_report(
     all_rows: List[SignalOutcome],
     benchmark: Optional[Dict],
     as_of: date,
+    study: Optional[Dict] = None,
+    breakdowns: Optional[List[Dict]] = None,
 ) -> str:
     clean = [o for o in deduped if not o.signal.earnings_note]
     flagged = [o for o in deduped if o.signal.earnings_note]
@@ -312,6 +478,45 @@ def build_validation_report(
                 f"| {s.signal_date} | {sym} | {s.live_price} | {s.stop} "
                 f"| {s.target} | -- | pending | -- |"
             )
+    if study is not None:
+        lines += [
+            "",
+            "## Entry-value study: what is intraday entry worth?",
+            "",
+            "Each signal graded twice -- from the logged live price and from",
+            "the same day's close, identical stop/target levels and hold",
+            "window. The delta is the entire value of acting intraday instead",
+            "of reading the evening report. Pairs where the live entry",
+            "resolved the same day, or the close was already past a level,",
+            "aren't comparable and are counted, not compared.",
+            "",
+            f"- Comparable pairs: {study['pairs']} "
+            f"({study['not_comparable']} not comparable, "
+            f"{study['pending']} pending)",
+            f"- Avg return from live entry: {study['avg_live_pct']:+.2f}%",
+            f"- Avg return from same-day close entry: {study['avg_eod_pct']:+.2f}%",
+            f"- Avg intraday-entry edge: {study['avg_delta_pct']:+.2f}% per trade "
+            f"(median {study['median_delta_pct']:+.2f}%)",
+        ]
+    if breakdowns:
+        lines += [
+            "",
+            "## Descriptive breakdowns (NOT rules)",
+            "",
+            "Resolved deduped signals split by logged features. Six",
+            "comparisons over a few dozen correlated trades: any bucket can",
+            "look good by chance. A split becomes a filter only via the same",
+            "logged-counterfactual path the earnings filter took -- flag",
+            "first, grade the excluded group, adopt on out-of-sample margin.",
+            "",
+            "| Feature | Bucket | n | Win rate | Avg return |",
+            "|---|---|---|---|---|",
+        ]
+        for r in breakdowns:
+            lines.append(
+                f"| {r['feature']} | {r['bucket']} | {r['n']} "
+                f"| {r['win_rate']}% | {r['avg_return_pct']:+.2f}% |"
+            )
     lines += [
         "",
         "## Caveats (read before believing anything above)",
@@ -353,15 +558,20 @@ def main(argv=None) -> int:
           f"(symbol, day) signals", file=sys.stderr)
 
     provider = YFinanceProvider()
-    deduped_outcomes = score_all(deduped, provider)
-    # Re-use the same histories implicitly: score_all caches per symbol.
-    all_outcomes = score_all(signals, provider)
+    histories = fetch_histories(signals, provider)
+    deduped_outcomes = score_all(deduped, histories=histories)
+    all_outcomes = score_all(signals, histories=histories)
+    study = entry_value_study(deduped, histories)
+    breakdowns = bucket_breakdowns(deduped_outcomes)
 
     since = min(s.signal_date for s in signals)
     benchmark = eod_benchmark(args.track_record, since)
 
     as_of = datetime.now().date()
-    report = build_validation_report(deduped_outcomes, all_outcomes, benchmark, as_of)
+    report = build_validation_report(
+        deduped_outcomes, all_outcomes, benchmark, as_of,
+        study=study, breakdowns=breakdowns,
+    )
     out = args.out or f"backtests/{as_of.isoformat()}-live-validation.md"
     Path(out).parent.mkdir(parents=True, exist_ok=True)
     Path(out).write_text(report)

@@ -72,6 +72,37 @@ Earnings-flagged signals (what the filter excluded): no resolved trades yet
 | 2026-11-04 | TSLA | 390.035 | 363.9343 | 429.1861 | -- | pending | -- |
 | 2026-11-04 | UNH | 408.055 | 387.0538 | 439.5568 | -- | pending | -- |
 
+## Entry-value study: what is intraday entry worth?
+
+Each signal graded twice -- from the logged live price and from
+the same day's close, identical stop/target levels and hold
+window. The delta is the entire value of acting intraday instead
+of reading the evening report. Pairs where the live entry
+resolved the same day, or the close was already past a level,
+aren't comparable and are counted, not compared.
+
+- Comparable pairs: 27 (0 not comparable, 17 pending)
+- Avg return from live entry: -0.18%
+- Avg return from same-day close entry: -0.12%
+- Avg intraday-entry edge: -0.06% per trade (median -0.29%)
+
+## Descriptive breakdowns (NOT rules)
+
+Resolved deduped signals split by logged features. Six
+comparisons over a few dozen correlated trades: any bucket can
+look good by chance. A split becomes a filter only via the same
+logged-counterfactual path the earnings filter took -- flag
+first, grade the excluded group, adopt on out-of-sample margin.
+
+| Feature | Bucket | n | Win rate | Avg return |
+|---|---|---|---|---|
+| score | high | 14 | 50.0% | -0.81% |
+| score | low | 13 | 61.5% | +0.49% |
+| rel_vol_est | <1.5x | 14 | 50.0% | +0.08% |
+| rel_vol_est | >=1.5x | 13 | 61.5% | -0.46% |
+| session_elapsed_pct | early session | 23 | 47.8% | -1.37% |
+| session_elapsed_pct | late session | 4 | 100.0% | +6.67% |
+
 ## Caveats (read before believing anything above)
 
 - Entry at the logged live price assumes an instant, spread-free

@@ -238,3 +238,102 @@ class TestFlaggedSplit:
         report = build_validation_report(
             self._outcomes(), [], None, date(2026, 11, 5))
         assert "Earnings-flagged signals (what the filter excluded): 1 resolved, 0 wins" in report
+
+
+from halal_trader.live_validate import (
+    bucket_breakdowns,
+    close_entry_outcome,
+    entry_value_study,
+)
+
+
+class TestCloseEntryCounterfactual:
+    def test_not_comparable_when_close_beyond_stop(self):
+        hist = _frame([("2026-10-23", 99, 102, 93, 94)])  # close < stop 95
+        assert close_entry_outcome(_sig(), hist, max_days=5,
+                                   slippage_pct=0.0) is None
+
+    def test_not_comparable_when_no_bar_yet(self):
+        hist = _frame([("2026-10-22", 99, 102, 98, 100)])
+        assert close_entry_outcome(_sig(), hist, max_days=5,
+                                   slippage_pct=0.0) is None
+
+    def test_return_measured_from_close_same_levels(self):
+        # Live entry 100, day closes 102, target 110 hits day 2: the EOD
+        # leg must book +7.84% (from 102), not +10%.
+        hist = _frame([
+            ("2026-10-23", 99, 103, 98, 102),
+            ("2026-10-26", 102, 111, 101, 110),
+        ])
+        out = close_entry_outcome(_sig(price=100.0), hist, max_days=5,
+                                  slippage_pct=0.0)
+        assert out.resolved and out.exit_reason == "target"
+        assert out.return_pct == pytest.approx(7.84, abs=0.01)
+
+
+class TestEntryValueStudy:
+    def test_delta_is_live_minus_eod(self):
+        hist = _frame([
+            ("2026-10-23", 99, 103, 98, 102),
+            ("2026-10-26", 102, 111, 101, 110),
+        ])
+        study = entry_value_study([_sig(price=100.0)], {"TEST": hist})
+        assert study["pairs"] == 1
+        assert study["avg_live_pct"] == pytest.approx(10.0)
+        assert study["avg_eod_pct"] == pytest.approx(7.84, abs=0.01)
+        assert study["avg_delta_pct"] == pytest.approx(2.16, abs=0.02)
+
+    def test_same_day_live_exit_not_comparable(self):
+        # Live entry stopped on the signal day's close: an EOD process was
+        # never in the trade, so there is no pair.
+        hist = _frame([("2026-10-23", 99, 102, 93, 94)])
+        study = entry_value_study([_sig()], {"TEST": hist})
+        assert study is None or study.get("pairs", 0) == 0
+
+    def test_pending_pair_counted_not_compared(self):
+        hist = _frame([
+            ("2026-10-23", 99, 103, 98, 102),
+            ("2026-10-26", 102, 104, 101, 103),
+        ])
+        win_hist = _frame([
+            ("2026-10-23", 99, 103, 98, 102),
+            ("2026-10-26", 102, 111, 101, 110),
+        ])
+        study = entry_value_study(
+            [_sig(symbol="PEND"), _sig(symbol="DONE", price=100.0)],
+            {"PEND": hist, "DONE": win_hist})
+        assert study["pairs"] == 1 and study["pending"] == 1
+
+
+class TestBreakdowns:
+    def _outcome(self, ret, rel_vol, elapsed, score):
+        sig = LiveSignal(
+            signalled_at_utc="2026-10-23T14:30:00Z", symbol="X",
+            live_price=100.0, stop=95.0, target=110.0,
+            rel_vol_est=rel_vol, session_elapsed_pct=elapsed, score=score)
+        hist = _frame([
+            ("2026-10-23", 100, 101, 99, 100),
+            ("2026-10-26", 100, 111 if ret > 0 else 101,
+             99 if ret > 0 else 93, 110 if ret > 0 else 94),
+        ])
+        return score_signal(sig, hist, max_days=5, slippage_pct=0.0)
+
+    def test_buckets_split_and_count(self):
+        outs = [
+            self._outcome(+1, rel_vol=1.2, elapsed=20.0, score=25.0),
+            self._outcome(-1, rel_vol=2.0, elapsed=90.0, score=40.0),
+        ]
+        rows = bucket_breakdowns(outs)
+        feats = {r["feature"] for r in rows}
+        assert feats == {"score", "rel_vol_est", "session_elapsed_pct"}
+        vol = {r["bucket"]: r for r in rows if r["feature"] == "rel_vol_est"}
+        assert vol["<1.5x"]["n"] == 1 and vol["<1.5x"]["win_rate"] == 100.0
+        assert vol[">=1.5x"]["n"] == 1 and vol[">=1.5x"]["win_rate"] == 0.0
+
+    def test_missing_features_skipped(self):
+        hist = _frame([
+            ("2026-10-23", 100, 101, 99, 100),
+            ("2026-10-26", 100, 111, 99, 110),
+        ])
+        out = score_signal(_sig(), hist, max_days=5, slippage_pct=0.0)
+        assert bucket_breakdowns([out]) == []
