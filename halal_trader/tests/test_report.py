@@ -417,8 +417,9 @@ def test_last_leftover_can_be_a_ticket_and_is_capped_by_free_cash():
     from halal_trader.trades import Trade, open_positions
     from halal_trader import config as _cfg
 
-    # 2100 of 2250 invested -> 150 EUR free: ticket must shrink to 150, with a fee note
-    qty = 2100.0 / 100.0
+    # all but 150 EUR of the budget invested -> ticket must shrink to the
+    # 150 EUR free cash, with a fee note (follows config.PORTFOLIO_EUR)
+    qty = (_cfg.PORTFOLIO_EUR - 150.0) / 100.0
     held = open_positions(
         [Trade("ALL", "open", date(2026, 10, 19), 100.0, qty, "EUR", 90.0, 120.0)],
         date(2026, 10, 20),
