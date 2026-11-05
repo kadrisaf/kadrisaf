@@ -247,3 +247,30 @@ days from the actual entry day unless noted.
 ## Suggested first prompt for the new session
 
 See the message the user was given alongside this file.
+
+## Update 2026-11-05: shadow system graded, earnings filter added
+
+- Built `halal_trader/live_validate.py`: replays every logged live-screen
+  signal (track_record/live_signals.csv) through track_record.simulate_exit
+  -- signal day judged on its CLOSE only (daily bars can't order intraday
+  prices around the signal time), one trade per (symbol, day), same
+  stop-before-target / gap-at-open / slippage rules as everything else.
+  Run: `python -m halal_trader.live_validate` -> backtests/<date>-live-validation.md.
+- First grade (backtests/2026-11-05-live-validation.md): shadow 27 resolved,
+  55.6% win, -0.18%/trade vs EOD screen 58.6%, +0.20% same dates. Shadow
+  LOSES its bar -> stays PAPER ONLY, no ticket rights. Losses dominated by
+  NOW signalled Oct 27 AND 28 directly before a ~20% earnings gap (-22.4%,
+  -20.0% graded fills).
+- Fix for that failure mode: live_screen.py now runs the report's own
+  earnings check (events.next_earnings_date vs the 5-trading-day hold
+  window). Flagged names are NOT shown as qualifiers but ARE still logged
+  with an `earnings_note` column (log migrated), so live_validate grades
+  the excluded group separately -- the counterfactual of what the filter
+  saves. Pre-filter rows have an empty note and are graded as-is.
+- Verified live Nov 5: EPAM (signalled 3x Nov 3-4) reports earnings Nov 5
+  -- the filter would have flagged all three.
+- Real book Nov 5: ORLY / DHI / AMZN open, all exit by Nov 11. Record 22
+  closed, 63.6% win, +0.88% avg. Oct 30-Nov 4 exits included 4 plan breaks
+  (CRWD 5 days overdue, ADSK+SHW discretionary early, XOM late stop) --
+  flagged to the user per protocol section 8.
+- Tests: 155 passing.
