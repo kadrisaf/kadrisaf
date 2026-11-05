@@ -290,3 +290,14 @@ See the message the user was given alongside this file.
   out-of-sample margin. Never fit a predictor to this log (~tens of
   correlated samples).
 - Tests: 163 passing.
+
+## Update 2026-11-05 (later still): peak-day measurement
+
+- User proposed exiting early ("max predicted day 3") -- declined as a
+  prediction, measured instead. peak_profile in live_validate: EOD
+  tracker n=108, median peak day 3 but nearly uniform (day 5 is the MOST
+  common peak day, 27%); shadow n=37, median day 4, days 4-5 hold 60% of
+  peaks. Tune grid's 3d cells never led. Conclusion: shortening the hold
+  forfeits ~half the maxima; standing target orders already give
+  minute-precise exits without predicting anything. 5-day time-stop and
+  2.0/3.0 ATR stand. Tests: 168 passing.
