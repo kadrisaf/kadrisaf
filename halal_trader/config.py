@@ -163,7 +163,7 @@ TYPICAL_POSITION_EUR = 500 # position size the report's cost-drag note assumes
 # round-trip fee exceeds ~0.5%, and declares the budget full only when the
 # leftover is too small to trade at all.
 SIZING_MODE = "risk_formula"
-PORTFOLIO_EUR = 2250.0        # user-set budget, 2026-10-20; update anytime
+PORTFOLIO_EUR = 2395.0        # user-stated 2026-11-05: ~1851 invested + 544 free
 RISK_PCT_PER_TRADE = 2.0      # % of budget risked per trade (entry - stop)
 MAX_POSITION_PCT_OF_PORTFOLIO = 33.0  # one name never takes more than a third of the budget
 MIN_TICKET_EUR = 400.0        # fee-efficiency WARNING threshold (never blocks)
