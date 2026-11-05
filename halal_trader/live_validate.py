@@ -317,6 +317,62 @@ def entry_value_study(
     }
 
 
+def peak_profile(
+    entries: List[tuple],
+    histories: Dict[str, pd.DataFrame],
+    max_days: int = None,
+    first_day_label: int = 1,
+) -> Optional[Dict]:
+    """When does the maximum actually happen inside the hold window?
+
+    `entries` is (symbol, entry_date, entry_price); for each one the bars
+    AFTER entry_date (up to `max_days` of them) are scanned for the day of
+    the highest high -- the day a perfectly-timed exit would have needed.
+    `first_day_label` names the first scanned bar (the EOD tracker's first
+    bar after ranking is hold-day 1; a shadow signal's first full bar is
+    hold-day 2, because day 1's high straddles the signal time).
+
+    MEASUREMENT, not a timing model: the peak day is only knowable in
+    hindsight, and an average peak day is not a prediction for any single
+    trade. This exists to test (or refute) 'maxima come early, so exit
+    early' with data instead of intuition -- any actual change to the
+    time-stop still has to win in tune.py's split-sample grid first."""
+    if max_days is None:
+        max_days = config.DEFAULT_SIGNAL_PARAMS.max_holding_days
+    histogram: Dict[int, int] = {}
+    mfes: List[float] = []
+    for symbol, entry_date, entry_price in entries:
+        hist = histories.get(symbol, pd.DataFrame())
+        if hist.empty or not entry_price:
+            continue
+        window = hist[hist.index.date > entry_date].head(max_days)
+        if window.empty:
+            continue
+        pos = int(window["High"].values.argmax())
+        day = first_day_label + pos
+        histogram[day] = histogram.get(day, 0) + 1
+        mfes.append(
+            (float(window["High"].iloc[pos]) - entry_price)
+            / entry_price * 100
+        )
+    if not mfes:
+        return None
+    total = sum(histogram.values())
+    days = sorted(histogram)
+    cum, median_day = 0, days[-1]
+    for d in days:
+        cum += histogram[d]
+        if cum * 2 >= total:
+            median_day = d
+            break
+    return {
+        "n": total,
+        "histogram": {d: histogram[d] for d in days},
+        "median_peak_day": median_day,
+        "avg_mfe_pct": round(sum(mfes) / len(mfes), 2),
+    }
+
+
 # Feature buckets for the descriptive breakdowns. Two buckets per feature
 # on purpose: with tens of trades, finer splits are pure noise.
 BREAKDOWN_BUCKETS = [
@@ -425,6 +481,8 @@ def build_validation_report(
     as_of: date,
     study: Optional[Dict] = None,
     breakdowns: Optional[List[Dict]] = None,
+    peaks_eod: Optional[Dict] = None,
+    peaks_shadow: Optional[Dict] = None,
 ) -> str:
     clean = [o for o in deduped if not o.signal.earnings_note]
     flagged = [o for o in deduped if o.signal.earnings_note]
@@ -517,6 +575,32 @@ def build_validation_report(
                 f"| {r['feature']} | {r['bucket']} | {r['n']} "
                 f"| {r['win_rate']}% | {r['avg_return_pct']:+.2f}% |"
             )
+    if peaks_eod or peaks_shadow:
+        lines += [
+            "",
+            "## When do maxima actually happen? (hindsight measurement)",
+            "",
+            "Day of the highest high inside the hold window, per trade. The",
+            "peak day is only knowable AFTERWARD -- an average peak day is",
+            "not an exit signal for any single trade, and a standing target",
+            "order already exits at the peak's price the moment it trades.",
+            "Any time-stop change still has to win in tune.py's split-sample",
+            "grid first (the 3/5/8-day grid's in-sample leaders were all 8d).",
+            "",
+        ]
+        for label, pk in (("EOD tracker candidates", peaks_eod),
+                          ("Shadow signals (day 1 unobservable)", peaks_shadow)):
+            if not pk:
+                continue
+            histo = ", ".join(
+                f"day {d}: {c} ({round(100 * c / pk['n'])}%)"
+                for d, c in pk["histogram"].items()
+            )
+            lines += [
+                f"- {label} (n={pk['n']}): median peak day "
+                f"{pk['median_peak_day']}, avg best excursion "
+                f"{pk['avg_mfe_pct']:+.2f}% -- {histo}",
+            ]
     lines += [
         "",
         "## Caveats (read before believing anything above)",
@@ -567,10 +651,33 @@ def main(argv=None) -> int:
     since = min(s.signal_date for s in signals)
     benchmark = eod_benchmark(args.track_record, since)
 
+    # Peak-day measurement over BOTH populations: the EOD tracker (bigger
+    # sample) and the shadow signals. Hindsight only; see peak_profile.
+    eod_records = load_track_record(args.track_record)
+    for rec in eod_records:
+        if rec.symbol not in histories:
+            try:
+                histories[rec.symbol] = provider.get_price_history(
+                    rec.symbol, period="6mo"
+                )
+            except DataUnavailable:
+                histories[rec.symbol] = pd.DataFrame()
+    peaks_eod = peak_profile(
+        [(r.symbol, date.fromisoformat(r.date_ranked), r.entry_close)
+         for r in eod_records],
+        histories,
+    )
+    max_days = config.DEFAULT_SIGNAL_PARAMS.max_holding_days
+    peaks_shadow = peak_profile(
+        [(s.symbol, s.signal_date, s.live_price) for s in deduped],
+        histories, max_days=max_days - 1, first_day_label=2,
+    )
+
     as_of = datetime.now().date()
     report = build_validation_report(
         deduped_outcomes, all_outcomes, benchmark, as_of,
         study=study, breakdowns=breakdowns,
+        peaks_eod=peaks_eod, peaks_shadow=peaks_shadow,
     )
     out = args.out or f"backtests/{as_of.isoformat()}-live-validation.md"
     Path(out).parent.mkdir(parents=True, exist_ok=True)

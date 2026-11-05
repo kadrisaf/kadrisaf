@@ -103,6 +103,18 @@ first, grade the excluded group, adopt on out-of-sample margin.
 | session_elapsed_pct | early session | 23 | 47.8% | -1.37% |
 | session_elapsed_pct | late session | 4 | 100.0% | +6.67% |
 
+## When do maxima actually happen? (hindsight measurement)
+
+Day of the highest high inside the hold window, per trade. The
+peak day is only knowable AFTERWARD -- an average peak day is
+not an exit signal for any single trade, and a standing target
+order already exits at the peak's price the moment it trades.
+Any time-stop change still has to win in tune.py's split-sample
+grid first (the 3/5/8-day grid's in-sample leaders were all 8d).
+
+- EOD tracker candidates (n=108): median peak day 3, avg best excursion +4.43% -- day 1: 26 (24%), day 2: 14 (13%), day 3: 16 (15%), day 4: 23 (21%), day 5: 29 (27%)
+- Shadow signals (day 1 unobservable) (n=37): median peak day 4, avg best excursion +4.92% -- day 2: 8 (22%), day 3: 7 (19%), day 4: 11 (30%), day 5: 11 (30%)
+
 ## Caveats (read before believing anything above)
 
 - Entry at the logged live price assumes an instant, spread-free

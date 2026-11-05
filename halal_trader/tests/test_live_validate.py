@@ -337,3 +337,64 @@ class TestBreakdowns:
         ])
         out = score_signal(_sig(), hist, max_days=5, slippage_pct=0.0)
         assert bucket_breakdowns([out]) == []
+
+
+from halal_trader.live_validate import peak_profile
+
+
+class TestPeakProfile:
+    def test_peak_day_is_argmax_of_highs(self):
+        hist = _frame([
+            ("2026-10-23", 100, 101, 99, 100),   # entry day (excluded)
+            ("2026-10-26", 100, 102, 99, 101),   # day 1
+            ("2026-10-27", 101, 108, 100, 107),  # day 2 <- peak
+            ("2026-10-28", 107, 105, 99, 100),
+            ("2026-10-29", 100, 101, 99, 100),
+            ("2026-10-30", 100, 101, 99, 100),
+        ])
+        pk = peak_profile([("X", date(2026, 10, 23), 100.0)], {"X": hist},
+                          max_days=5)
+        assert pk["n"] == 1
+        assert pk["histogram"] == {2: 1}
+        assert pk["median_peak_day"] == 2
+        assert pk["avg_mfe_pct"] == pytest.approx(8.0)
+
+    def test_window_capped_at_max_days(self):
+        rows = [("2026-10-23", 100, 101, 99, 100)]
+        rows += [(d, 100, 101, 99, 100) for d in
+                 ("2026-10-26", "2026-10-27", "2026-10-28", "2026-10-29",
+                  "2026-10-30")]
+        rows.append(("2026-11-02", 100, 150, 99, 149))  # day 6: outside
+        hist = _frame(rows)
+        pk = peak_profile([("X", date(2026, 10, 23), 100.0)], {"X": hist},
+                          max_days=5)
+        assert max(pk["histogram"]) <= 5
+        assert pk["avg_mfe_pct"] == pytest.approx(1.0)
+
+    def test_first_day_label_offsets_shadow_population(self):
+        hist = _frame([
+            ("2026-10-23", 100, 101, 99, 100),
+            ("2026-10-26", 100, 109, 99, 108),  # first full bar = day 2
+        ])
+        pk = peak_profile([("X", date(2026, 10, 23), 100.0)], {"X": hist},
+                          max_days=4, first_day_label=2)
+        assert pk["histogram"] == {2: 1}
+
+    def test_none_when_no_bars_after_entry(self):
+        hist = _frame([("2026-10-23", 100, 101, 99, 100)])
+        assert peak_profile([("X", date(2026, 10, 23), 100.0)],
+                            {"X": hist}, max_days=5) is None
+
+    def test_median_over_several_trades(self):
+        def one(peak_on):
+            rows = []
+            for i, d in enumerate(("2026-10-26", "2026-10-27", "2026-10-28",
+                                   "2026-10-29", "2026-10-30"), start=1):
+                hi = 110 if i == peak_on else 101
+                rows.append((d, 100, hi, 99, 100))
+            return _frame(rows)
+        hists = {"A": one(1), "B": one(3), "C": one(5)}
+        pk = peak_profile(
+            [(s, date(2026, 10, 23), 100.0) for s in "ABC"],
+            hists, max_days=5)
+        assert pk["n"] == 3 and pk["median_peak_day"] == 3
