@@ -301,3 +301,16 @@ See the message the user was given alongside this file.
   forfeits ~half the maxima; standing target orders already give
   minute-precise exits without predicting anything. 5-day time-stop and
   2.0/3.0 ATR stand. Tests: 168 passing.
+
+## Update 2026-11-05 (user decisions, afternoon)
+
+- Budget base: PORTFOLIO_EUR = 2395 (user-stated: ~1851 in ORLY/DHI/AMZN
+  + 544 free).
+- User SKIPPED the ROST leftover ticket and keeps 544 EUR free -- reason:
+  all three open positions are Consumer Cyclical and ROST would have made
+  the book 100% one sector, all four exiting Nov 11 (the report missed
+  the streak flag only because it ran before the entries were logged).
+- Live screen stays ON, recording-only, paper-only -- unchanged schedule
+  (10:00/15:00/19:00 UTC weekdays). No ticket rights.
+- EPAM (#1 ranked, score 49.5, stale row) fell on its earnings print the
+  same day -- stale-row rule + earnings filter validated live.
