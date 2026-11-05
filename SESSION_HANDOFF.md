@@ -274,3 +274,19 @@ See the message the user was given alongside this file.
   (CRWD 5 days overdue, ADSK+SHW discretionary early, XOM late stop) --
   flagged to the user per protocol section 8.
 - Tests: 155 passing.
+
+## Update 2026-11-05 (later): shadow log is now the learning lab
+
+- live_validate also runs an entry-value study (each signal graded from
+  the live price AND from the same day's close, identical levels -- the
+  delta is what intraday entry is worth) and descriptive breakdowns by
+  score / rel-vol / session-time, labeled NOT rules.
+- First reads, 27 resolved deduped signals: intraday entry edge is
+  -0.06%/trade avg (median -0.29%) -- i.e. nothing; higher score did
+  WORSE than lower score (-0.81% vs +0.49%), so the ranking has no
+  demonstrated meaning yet; "late session 100% win" is n=4, ignore.
+- Promotion path for any future rule: flag-and-log first (like
+  earnings_note), grade the excluded group, adopt only on a clear
+  out-of-sample margin. Never fit a predictor to this log (~tens of
+  correlated samples).
+- Tests: 163 passing.
