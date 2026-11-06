@@ -1,0 +1,68 @@
+name: Pre-entry check
+
+# VETO-ONLY confirmation run ~15:45 Berlin (15 minutes after the US
+# open): re-checks the morning report's ranked names at live prices and
+# commits reports/entry_checks/<date>.md. It can only downgrade morning
+# candidates (gap, broken setup, level already crossed, earnings) --
+# never add names. See halal_trader/entry_check.py.
+#
+# GitHub cron is UTC and ignores DST, so both seasonal equivalents of
+# 15:45 Berlin are scheduled and the guard keeps whichever lands in the
+# intended window (cron often starts late; the window is generous but
+# ends before the session is old news).
+on:
+  workflow_dispatch: {}
+  schedule:
+    - cron: "45 13 * * 1-5"   # 15:45 Berlin in summer (CEST)
+    - cron: "45 14 * * 1-5"   # 15:45 Berlin in winter (CET)
+
+permissions:
+  contents: write
+
+concurrency:
+  group: entry-check
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Guard - only in the post-open window, once per day
+        id: guard
+        run: |
+          berlin_now=$(TZ=Europe/Berlin date +%H%M)
+          today=$(TZ=Europe/Berlin date +%F)
+          if [ "$berlin_now" -lt 1540 ] || [ "$berlin_now" -gt 1759 ]; then
+            echo "Outside 15:40-17:59 Berlin ($berlin_now) -- skipping."
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          elif [ -f "reports/entry_checks/$today.md" ]; then
+            echo "Check for $today already exists -- skipping."
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-python@v5
+        if: steps.guard.outputs.run == 'true'
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        if: steps.guard.outputs.run == 'true'
+        run: pip install -r requirements.txt
+
+      - name: Run the pre-entry check
+        if: steps.guard.outputs.run == 'true'
+        run: python -m halal_trader.entry_check
+
+      - name: Commit the check
+        if: steps.guard.outputs.run == 'true'
+        run: |
+          git config user.name "halal-trader-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add reports/entry_checks/
+          git diff --cached --quiet || git commit -m "Pre-entry check $(TZ=Europe/Berlin date +%F)"
+          git push
