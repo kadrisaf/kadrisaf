@@ -314,3 +314,9 @@ See the message the user was given alongside this file.
   (10:00/15:00/19:00 UTC weekdays). No ticket rights.
 - EPAM (#1 ranked, score 49.5, stale row) fell on its earnings print the
   same day -- stale-row rule + earnings filter validated live.
+
+## 2026-11-09 (pre-pop study)
+- Built `halal_trader/prepop_study.py` (user asked whether top movers can be predicted BEFORE the move). 205,479 symbol-days, 175 symbols, 5y, split at 2024-06-20, >=+8% day within 5d as label (base rate 2.77% train / 3.65% test).
+- Verdicts: vol_creep survived (1.42x/1.31x -- modest); dist_high survived (2.95x/2.06x) BUT is the falling-knife-bounce profile (drift5 Q1 = biggest 5d declines also pops most, low RSI too) -- the exact profile the entry rules exclude on purpose, symmetric with -8% crash risk. Squeeze dead, RSI inconsistent. No adoption; any use of vol_creep as a scoring input needs its own tune.py split-sample test first.
+- Entry checks 2026-11-09 (3 runs, veto-only): all four ranked names (LLY/HSY/ECL/ITW) ended CAUTION -- LLY ran +3.1% past tolerance (RSI 65.5), ECL volume-dead (0.62x), HSY gapped -4.2%, ITW failed live re-qual. User entered nothing; EUR 547 stays free into CPI (Nov 10). ORLY/DHI/AMZN time-stop Wed Nov 11.
+- Environment: system git package vanished Nov 6; restored Nov 9 via `conda install -n base git` (2.45.1 at ~/miniconda3/bin/git).
