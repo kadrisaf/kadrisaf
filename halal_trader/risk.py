@@ -121,3 +121,43 @@ def order_ticket(
         "risk_pct": risk_pct,
         "portfolio": portfolio_eur,
     }
+
+
+def shared_tape_flags(
+    ranked_symbols: List[str],
+    ret5: Dict[str, float],
+    sectors: Dict[str, Optional[str]],
+    min_peers: int = 3,
+    share: float = 0.5,
+    min_move_pct: float = 2.0,
+) -> Dict[str, str]:
+    """Move-attribution check (warning only, user request 2026-11-10 after
+    DHI): is a candidate's qualifying 5-day move its own, or the whole
+    sector's? When the median 5-day move of the OTHER screened names in the
+    same sector is the same sign and at least `share` of the candidate's own
+    move, the trend/volume gates may be reading a sector-wide event (a macro
+    rally, a policy shock) rather than name-specific accumulation -- DHI's
+    midterm-election housing pop was exactly this. Needs `min_peers` sector
+    peers with data and a candidate move of at least `min_move_pct` to say
+    anything. A filter would need validated evidence; this logs the warning
+    in the report so that evidence can accumulate."""
+    out: Dict[str, str] = {}
+    for cand in ranked_symbols:
+        move = ret5.get(cand)
+        sector = sectors.get(cand)
+        if move is None or sector is None or abs(move) < min_move_pct:
+            continue
+        peers = [
+            r for s, r in ret5.items()
+            if s != cand and sectors.get(s) == sector and r is not None
+        ]
+        if len(peers) < min_peers:
+            continue
+        med = float(pd.Series(peers).median())
+        if med * move > 0 and abs(med) >= share * abs(move):
+            out[cand] = (
+                f"shared tape: median 5-day move of {len(peers)} other {sector} names "
+                f"is {med:+.1f}% (this name {move:+.1f}%) -- the qualifying move looks "
+                f"sector-wide, not name-specific (warning only, unvalidated)"
+            )
+    return out

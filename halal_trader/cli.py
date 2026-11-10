@@ -34,7 +34,7 @@ from .filing_digest import digest_filing
 from .filings import FilingItem, InsiderActivity, SecEdgarFilingsProvider, SecEdgarInsiderProvider
 from .macro import YFinanceMacroProvider
 from .report import build_report
-from .risk import correlation_flags
+from .risk import correlation_flags, shared_tape_flags
 from .sentiment import AnthropicSentimentTagger, SentimentTag
 from .shariah_screen import ScreenResult, load_overrides, screen_company
 from .signals import TradeSignal, evaluate_signal
@@ -66,6 +66,7 @@ def load_universe(path: str | None) -> List[str]:
 def run(
     universe: List[str], top: int, provider: DataProvider | None = None,
     sectors_out: Optional[Dict[str, Optional[str]]] = None,
+    ret5_out: Optional[Dict[str, float]] = None,
 ) -> Tuple[
     List[Tuple[ScreenResult, TradeSignal]],
     List[ScreenResult],
@@ -116,6 +117,9 @@ def run(
             skipped.append(symbol)
             continue
 
+        if ret5_out is not None and len(history) >= 6:
+            closes = history["Close"]
+            ret5_out[symbol] = round(float(closes.iloc[-1] / closes.iloc[-6] - 1) * 100, 2)
         signal = evaluate_signal(symbol, history)
         if signal.qualifies:
             ranked.append((screen, signal))
@@ -150,8 +154,9 @@ def main(argv: List[str] | None = None) -> int:
     universe = load_universe(args.universe)
     provider = YFinanceProvider()
     sectors: Dict[str, Optional[str]] = {}
+    ret5: Dict[str, float] = {}
     ranked, screened_out, not_qualifying, skipped = run(
-        universe, args.top, provider=provider, sectors_out=sectors
+        universe, args.top, provider=provider, sectors_out=sectors, ret5_out=ret5
     )
 
     # The user's REAL trades (hand-maintained CSV): open positions with
@@ -306,6 +311,7 @@ def main(argv: List[str] | None = None) -> int:
         insider=insider,
         fx_usd_per_eur=fx,
         sector_streaks=streaks,
+        shared_tape=shared_tape_flags([sig.symbol for _s, sig in ranked], ret5, sectors),
     )
 
     Path(args.out).write_text(report)

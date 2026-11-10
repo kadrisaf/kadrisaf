@@ -48,6 +48,7 @@ def build_report(
     insider: Optional[Dict[str, object]] = None,
     fx_usd_per_eur: Optional[float] = None,
     sector_streaks: Optional[Dict[str, dict]] = None,
+    shared_tape: Optional[Dict[str, str]] = None,
 ) -> str:
     as_of = as_of or datetime.utcnow().date()
     total = len(ranked) + len(screened_out) + len(not_qualifying) + len(skipped)
@@ -205,7 +206,7 @@ def build_report(
             + _ticket_eur_lines(ranked, fx_usd_per_eur)
             + _order_ticket_tail_lines()
         )
-        lines += _entry_context_lines(ranked, hold, positions, as_of, correlations, insider, sector_streaks)
+        lines += _entry_context_lines(ranked, hold, positions, as_of, correlations, insider, sector_streaks, shared_tape)
         lines += [
             "",
             "### Recent headlines (unverified -- for manual catalyst review only)",
@@ -297,7 +298,7 @@ def build_report(
     return "\n".join(lines) + "\n"
 
 
-def _entry_context_lines(ranked, hold, positions, as_of, correlations=None, insider=None, sector_streaks=None) -> List[str]:
+def _entry_context_lines(ranked, hold, positions, as_of, correlations=None, insider=None, sector_streaks=None, shared_tape=None) -> List[str]:
     """Entry-timing flags (52-week-high distance / overhead resistance) and
     what is scheduled inside the hold window. Warnings only: nothing here
     changes ranking, and none of it replaces ADVISORY_PROTOCOL section 3."""
@@ -332,6 +333,9 @@ def _entry_context_lines(ranked, hold, positions, as_of, correlations=None, insi
                 f"⚠ {corr:+.2f} return correlation with your open {pos_sym} position "
                 f"-- partly the same bet, not diversification"
             )
+        tape = (shared_tape or {}).get(sig.symbol)
+        if tape:
+            bits.append(f"⚠ {tape}")
         lines.append(f"- **{sig.symbol}**: " + "; ".join(bits) if bits else f"- **{sig.symbol}**: no data")
         for w in sig.warnings:
             lines.append(f"  - ⚠ {w}")
