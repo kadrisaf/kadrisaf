@@ -326,3 +326,7 @@ See the message the user was given alongside this file.
 - User bought ZTS 7.219973 @ 74.10 EUR (09:06, pre-CPI, before the 15:45 check -- logged with that caveat); sold AMZN manually a day before time-stop at +2.03%. ORLY/DHI time-stop Nov 11.
 - postearnings_study.py: post-earnings entries are the simulated ledger's BEST bucket (0-7d: 80% win, +1.99%/trade, n=35 vs +0.71% for >20d, n=68; 100% earnings-date coverage). Real ledger's 5 such trades mildly negative (n=5). Pre-registered verdict: warning stays a warning -- a filter would have cut the best-performing group. Re-run as ledgers grow.
 - Shared-tape attribution (user request after DHI's midterm-rally entry): run() now exposes ret5_out; risk.shared_tape_flags warns in the report when a candidate's 5-day move is matched by its sector median (the DHI case). Warning-only, unvalidated; filter only via flag-and-log evidence. Suite at 209.
+
+## 2026-11-11 (continued): entry-gate study after DHI
+- User challenged the trend gate ("no need for 50 days climbing") and the hot RSI edge after DHI's -5% time-stop day. Built halal_trader/tune_entrygates.py: split-sample test of 3 trend variants x 2 RSI caps + a band-edge diagnostic, live exits, pre-registered rule (beat LIVE by >=0.15%/trade on BOTH halves, >=150 train trades, valid n >= 0.5x LIVE's).
+- Result (backtests/2026-11-11-tune-entrygates.md): NO variant passes. Looser trend gates gain in train, lose in validation (classic sign flip); RSI 45-60 cap is worse on both halves; the 60-65 "DHI zone" shows no consistent penalty. Live gate stays unchanged.
