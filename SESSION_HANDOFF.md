@@ -381,3 +381,9 @@ See the message the user was given alongside this file.
 
 - New `.github/workflows/adx_retest.yml` mirroring volcreep_retest.yml: cron 07:00 UTC May 12 / Nov 12, first firing 2027-05-12; runs tune_adx on ~6 more months of unseen data; adoption rule unchanged (0.15%/trade both halves, n floors) PLUS the workflow comment pre-registers the extra check -- a pass by >=25 alone while 20/30 still trail LIVE remains suspect (non-monotonic = noise signature).
 - User asked "can we adapt it and use it?" -- answered: not as a gate (failed the rule); offered the pre-committed middle path of shadow-logging ADX(14) per candidate in the daily report as information only (no ranking/sizing change). NOT yet implemented -- awaiting user yes/no in chat. If yes: add adx column to report candidate table + log at entry in track_record for later autopsies; warn user not to discretionarily veto plan trades on it.
+
+## 2026-11-12 (latest): ADX shadow column shipped + daily-readout format promise
+
+- User said YES to shadow-logging. Canonical `adx_series` moved to signals.py (tune_adx re-imports it); TradeSignal gains `adx` (info only); report candidate table gains an ADX* column with a BOLD "information only -- do not pick or skip trades because of it" note; track_record CSV gains a trailing `adx` column (legacy rows load as None). 5 new tests in test_shadow_adx.py, suite 289. By the 2027-05-12 scheduled retest the simulated ledger will have months of ADX-tagged candidates.
+- User also asked that every daily report readout be in EASY WORDS with key info in BOLD and explicit expected actions -- saved as a persistent memory (daily-report-readout-format). Honor it every "check the report".
+- FYI logged at shadow time: HSY (user's newest real position) had ADX 19.4 at today's evaluate -- below the promising >=25 cell; stated to user as information only, explicitly not a sell reason.

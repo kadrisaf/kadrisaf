@@ -176,15 +176,23 @@ def build_report(
 
     if ranked:
         lines.append(
-            "| # | Symbol | Close | RSI | Rel.Vol | Stop | Target | R:R | Max hold | Score |"
+            "| # | Symbol | Close | RSI | Rel.Vol | ADX* | Stop | Target | R:R | Max hold | Score |"
         )
-        lines.append("|---|---|---|---|---|---|---|---|---|---|")
+        lines.append("|---|---|---|---|---|---|---|---|---|---|---|")
         for i, (screen, sig) in enumerate(ranked, start=1):
+            adx_cell = sig.adx if sig.adx is not None else "--"
             lines.append(
                 f"| {i} | **{sig.symbol}** | {sig.last_close} | {sig.rsi} | "
-                f"{sig.relative_volume}x | {sig.stop_loss} | {sig.target} | "
+                f"{sig.relative_volume}x | {adx_cell} | {sig.stop_loss} | {sig.target} | "
                 f"{sig.reward_risk} | {sig.max_holding_days}d | {sig.score} |"
             )
+        lines.append("")
+        lines.append(
+            "**\\*ADX is information only -- it is being watched, not used. It does NOT "
+            "change the ranking, the sizing, or whether to enter. Do not pick or skip "
+            "trades because of it.** (Shadow-logged since 2026-11-12 for the scheduled "
+            "May 2027 retest; higher = stronger trend.)"
+        )
         lines.append("")
         lines.append(
             "Stop/target are mechanical (ATR-based) reference points, not guarantees -- "

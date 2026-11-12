@@ -50,34 +50,14 @@ from .tune_entrygates import (
 )
 from .tune_spring import walk_trades
 
-ADX_PERIOD = 14
+from .signals import ADX_PERIOD, adx_series  # canonical implementation lives in signals
+
+_ = ADX_PERIOD  # re-exported for tests and callers
 THRESHOLDS = [20.0, 25.0, 30.0]
 
 CELLS = [("live", "LIVE (no ADX gate)")] + [
     (f"adx{int(t)}", f"ADX({ADX_PERIOD}) >= {t:g}") for t in THRESHOLDS
 ]
-
-
-def adx_series(df: pd.DataFrame, period: int = ADX_PERIOD) -> pd.Series:
-    """Wilder's ADX from OHLC daily bars, NaN through the warmup."""
-    high, low, close = df["High"], df["Low"], df["Close"]
-    up = high.diff()
-    down = -low.diff()
-    plus_dm = pd.Series(np.where((up > down) & (up > 0), up, 0.0), index=df.index)
-    minus_dm = pd.Series(np.where((down > up) & (down > 0), down, 0.0), index=df.index)
-    tr = pd.concat(
-        [high - low, (high - close.shift(1)).abs(), (low - close.shift(1)).abs()],
-        axis=1,
-    ).max(axis=1)
-    alpha = 1.0 / period
-    atr = tr.ewm(alpha=alpha, adjust=False).mean()
-    plus_di = 100 * plus_dm.ewm(alpha=alpha, adjust=False).mean() / atr
-    minus_di = 100 * minus_dm.ewm(alpha=alpha, adjust=False).mean() / atr
-    denom = plus_di + minus_di
-    dx = 100 * (plus_di - minus_di).abs() / denom.where(denom != 0)
-    adx = dx.ewm(alpha=alpha, adjust=False).mean()
-    adx.iloc[: 2 * period] = np.nan  # Wilder's warmup: DI then ADX smoothing
-    return adx
 
 
 def run_test(

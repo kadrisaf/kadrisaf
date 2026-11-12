@@ -38,6 +38,7 @@ FIELDNAMES = [
     "exit_price",
     "exit_reason",
     "return_pct",
+    "adx",
 ]
 
 
@@ -54,6 +55,7 @@ class TrackedCandidate:
     exit_price: Optional[float] = None
     exit_reason: Optional[str] = None  # "stop" | "target" | "time_stop"
     return_pct: Optional[float] = None
+    adx: Optional[float] = None  # shadow-logged at ranking time; info only
 
 
 def load_track_record(path: str) -> List[TrackedCandidate]:
@@ -76,6 +78,7 @@ def load_track_record(path: str) -> List[TrackedCandidate]:
                     exit_price=float(row["exit_price"]) if row["exit_price"] else None,
                     exit_reason=row["exit_reason"] or None,
                     return_pct=float(row["return_pct"]) if row["return_pct"] else None,
+                    adx=float(row["adx"]) if row.get("adx") else None,
                 )
             )
     return records
@@ -101,6 +104,7 @@ def save_track_record(path: str, records: List[TrackedCandidate]) -> None:
                     "exit_price": r.exit_price if r.exit_price is not None else "",
                     "exit_reason": r.exit_reason or "",
                     "return_pct": r.return_pct if r.return_pct is not None else "",
+                    "adx": r.adx if r.adx is not None else "",
                 }
             )
 
@@ -127,6 +131,7 @@ def record_new_candidates(
                 stop=sig.stop_loss,
                 target=sig.target,
                 max_holding_days=sig.max_holding_days,
+                adx=sig.adx,
             )
         )
     return records

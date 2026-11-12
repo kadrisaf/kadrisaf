@@ -41,7 +41,40 @@ class TradeSignal:
     high_52w: Optional[float] = None
     pct_below_52w_high: Optional[float] = None
     rr_to_52w_high: Optional[float] = None
+    adx: Optional[float] = None  # shadow-logged info only -- never gates/ranks/sizes
     warnings: List[str] = field(default_factory=list)
+
+
+ADX_PERIOD = 14
+
+
+def adx_series(df: pd.DataFrame, period: int = ADX_PERIOD) -> pd.Series:
+    """Wilder's ADX from OHLC daily bars, NaN through the warmup.
+
+    SHADOW-LOGGED ONLY: the 2026-11-12 split-sample study found ADX >= 25
+    promising but not adoptable (missed the margin on one half, and the
+    neighbouring thresholds were worse than no gate). It is reported as
+    information and recorded with each candidate so the scheduled 2027-05
+    retest has live-tagged data -- it must NOT gate, rank, or size anything.
+    """
+    high, low, close = df["High"], df["Low"], df["Close"]
+    up = high.diff()
+    down = -low.diff()
+    plus_dm = pd.Series(np.where((up > down) & (up > 0), up, 0.0), index=df.index)
+    minus_dm = pd.Series(np.where((down > up) & (down > 0), down, 0.0), index=df.index)
+    tr = pd.concat(
+        [high - low, (high - close.shift(1)).abs(), (low - close.shift(1)).abs()],
+        axis=1,
+    ).max(axis=1)
+    alpha = 1.0 / period
+    atr = tr.ewm(alpha=alpha, adjust=False).mean()
+    plus_di = 100 * plus_dm.ewm(alpha=alpha, adjust=False).mean() / atr
+    minus_di = 100 * minus_dm.ewm(alpha=alpha, adjust=False).mean() / atr
+    denom = plus_di + minus_di
+    dx = 100 * (plus_di - minus_di).abs() / denom.where(denom != 0)
+    adx = dx.ewm(alpha=alpha, adjust=False).mean()
+    adx.iloc[: 2 * period] = np.nan  # Wilder's warmup: DI then ADX smoothing
+    return adx
 
 
 def _rsi(close: pd.Series, period: int) -> pd.Series:
@@ -91,6 +124,7 @@ def evaluate_signal(
     volume = history["Volume"]
 
     rsi = _rsi(close, params.rsi_period).iloc[-1]
+    adx_val = adx_series(history).iloc[-1] if {"High", "Low"} <= set(history.columns) else float("nan")
     fast_sma = close.rolling(params.fast_sma).mean().iloc[-1]
     slow_sma = close.rolling(params.slow_sma).mean().iloc[-1]
     fast_sma_prev = close.rolling(params.fast_sma).mean().iloc[-2]
@@ -197,6 +231,7 @@ def evaluate_signal(
         target=round(float(target), 4) if target is not None else None,
         reward_risk=round(float(reward_risk), 2) if reward_risk is not None else None,
         score=score,
+        adx=round(float(adx_val), 1) if not pd.isna(adx_val) else None,
         max_holding_days=params.max_holding_days,
         high_52w=round(high_52w, 4),
         pct_below_52w_high=round(pct_below_high, 2) if pct_below_high is not None else None,
