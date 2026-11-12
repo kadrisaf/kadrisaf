@@ -330,3 +330,8 @@ See the message the user was given alongside this file.
 ## 2026-11-11 (continued): entry-gate study after DHI
 - User challenged the trend gate ("no need for 50 days climbing") and the hot RSI edge after DHI's -5% time-stop day. Built halal_trader/tune_entrygates.py: split-sample test of 3 trend variants x 2 RSI caps + a band-edge diagnostic, live exits, pre-registered rule (beat LIVE by >=0.15%/trade on BOTH halves, >=150 train trades, valid n >= 0.5x LIVE's).
 - Result (backtests/2026-11-11-tune-entrygates.md): NO variant passes. Looser trend gates gain in train, lose in validation (classic sign flip); RSI 45-60 cap is worse on both halves; the 60-65 "DHI zone" shows no consistent penalty. Live gate stays unchanged.
+
+## 2026-11-12: PDH/PDL study
+- User asked about Wyckoff / prev-day high-low / volume profile / consolidation. Sorted honestly: consolidation-breakout already failed twice (squeeze in prepop, vol_creep gate); volume profile untestable without intraday data; Wyckoff only testable fragment = spring (possible future study). Built halal_trader/tune_pdhl.py for the testable one: PDH entry confirmation and/or PDL stop vs live, same pre-registered rule as tune_entrygates.
+- Result (backtests/2026-11-12-tune-pdhl.md): NO variant passes. PDH confirmation halves trade count and cuts valid avg to +0.153% vs LIVE +0.374%; PDL stop craters win rate to ~38% (stop too tight, 975 entries had no defined risk); combo worst of both. Live entry + ATR stop stay.
+- ORLY/DHI sell confirmations from the Nov 11 time-stop still not received as of this writing.
