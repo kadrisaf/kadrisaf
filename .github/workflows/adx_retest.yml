@@ -1,0 +1,72 @@
+name: ADX gate retest
+
+# Twice-yearly re-run of the ADX trend-strength gate split-sample test
+# (halal_trader/tune_adx.py). Scheduled 2026-11-12 after the first run
+# was NOT adopted: ADX(14) >= 25 beat the LIVE baseline on BOTH halves
+# (train +0.221% vs +0.045%; valid +0.468% vs +0.372%) but missed the
+# pre-registered 0.15%/trade margin in validation, and the neighbouring
+# thresholds (20, 30) were WORSE than no gate at all -- a non-monotonic
+# dose-response that points to noise. Each re-run adds ~6 months of
+# data that no half of the original test ever saw. Decision rule
+# unchanged and pre-registered in the report itself: adopt only if a
+# threshold beats LIVE by >= 0.15%/trade on BOTH halves with >= 150
+# train trades and validation n >= 0.5x LIVE's. Watch specifically
+# whether >= 25 stays ahead AND the thresholds become monotonic; a pass
+# by 25 alone with 20/30 still below LIVE remains suspect.
+# First firing: 2027-05-12.
+on:
+  workflow_dispatch: {}
+  schedule:
+    - cron: "0 7 12 5,11 *"   # 07:00 UTC on May 12 and Nov 12
+
+permissions:
+  contents: write
+
+concurrency:
+  group: adx-retest
+  cancel-in-progress: false
+
+jobs:
+  retest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Guard - once per scheduled date
+        id: guard
+        run: |
+          today=$(date -u +%F)
+          if [ -f "backtests/$today-tune-adx.md" ]; then
+            echo "Retest for $today already exists -- skipping."
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-python@v5
+        if: steps.guard.outputs.run == 'true'
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        if: steps.guard.outputs.run == 'true'
+        run: pip install -r requirements.txt
+
+      - name: Run the ADX gate retest
+        if: steps.guard.outputs.run == 'true'
+        run: python -m halal_trader.tune_adx
+
+      - name: Commit the report
+        if: steps.guard.outputs.run == 'true'
+        run: |
+          git config user.name "halal-trader-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add backtests/
+          git diff --cached --quiet || git commit -m "Scheduled ADX gate retest $(date -u +%F)
+
+          Re-run of the 2026-11-12 split-sample test with ~6 more months
+          of out-of-sample data. See the report's pre-registered decision
+          rule before acting on it; adoption requires both halves AND a
+          monotonic threshold response."
+          git push
