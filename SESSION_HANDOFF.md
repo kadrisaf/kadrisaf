@@ -402,3 +402,13 @@ See the message the user was given alongside this file.
   built/adopted — user decision pending. If pursued: compute max drawdown + momentum-crash
   exposure first, decide sleeve budget, and define execution rules (TR, monthly, ~10 names).
 - Sweep tally: 14 studies, 1 pass (this one), 13 no-change.
+
+## 2026-11-13: Momentum sleeve risk study (momentum_risk) — every cell red-flagged
+- Same tape as tune_momentum (110 months, 2018-01..2026-11). Pre-registered flags:
+  DD >10pts deeper than EW / any month <=-20% / >24mo underwater.
+- ALL 4 momentum cells breached at least one flag. Worst months -30..-36% (EW itself
+  -29.3%, the 2020 crash month); m12 cells max DD -40/-42% vs EW -29%; max lag behind
+  EW -21% (m3) to -45% (m12_top5); ann. vol 35-43% vs EW 19%.
+- Net read: the return edge is real-looking but the sleeve is a rollercoaster — it can
+  trail "just hold everything" by ~half its value for 2 years. Sizing/funding decision
+  entirely with the user; nothing adopted, nothing built.

@@ -188,7 +188,15 @@ def run_on_matrix(closes: pd.DataFrame, slippage_pct: float = SLIPPAGE_PCT) -> D
             "valid_total": round(compounded(va), 1),
             "avg_turnover": round(float(np.mean(turnovers[key])), 2) if turnovers[key] else 0.0,
         })
-    return {"cells": cells, "n_periods": len(periods), "mid": mid}
+    return {
+        "cells": cells,
+        "n_periods": len(periods),
+        "mid": mid,
+        # raw material for the risk study: per-cell monthly % returns and
+        # each period's end date (same order as the returns)
+        "returns": returns,
+        "period_dates": [closes.index[r_next] for _, r_next in periods],
+    }
 
 
 def _passes(row: Dict, ew_row: Dict) -> bool:
