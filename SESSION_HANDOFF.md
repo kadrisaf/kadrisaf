@@ -387,3 +387,18 @@ See the message the user was given alongside this file.
 - User said YES to shadow-logging. Canonical `adx_series` moved to signals.py (tune_adx re-imports it); TradeSignal gains `adx` (info only); report candidate table gains an ADX* column with a BOLD "information only -- do not pick or skip trades because of it" note; track_record CSV gains a trailing `adx` column (legacy rows load as None). 5 new tests in test_shadow_adx.py, suite 289. By the 2027-05-12 scheduled retest the simulated ledger will have months of ADX-tagged candidates.
 - User also asked that every daily report readout be in EASY WORDS with key info in BOLD and explicit expected actions -- saved as a persistent memory (daily-report-readout-format). Honor it every "check the report".
 - FYI logged at shadow time: HSY (user's newest real position) had ADX 19.4 at today's evaluate -- below the promising >=25 cell; stated to user as information only, explicitly not a sell reason.
+
+## 2026-11-13: Momentum portfolio study (tune_momentum) — FIRST PASS of the sweep
+- Monthly (21d) cross-sectional momentum on the compliant universe, 10y, union calendar,
+  skip-month scores, EW-baseline benchmark, 0.1%/side turnover costs. Pre-registered:
+  beat EW by >=0.15%/month on BOTH halves, >=24 months/half.
+- ALL FOUR cells passed, by wide margins (m3_top10 +1.40/+1.27 over EW; m12_top5
+  +2.12/+2.18). EW itself +1.83/+1.59%/mo. Validation half includes the 2022 bear.
+- BIG caveat, stronger here than in any 6-day study: 10y backtest on TODAY'S compliant
+  universe = survivorship on steroids (today's names grew into the universe). Both cells
+  share the bias, and the EW-relative margin is the robust part, but absolute numbers
+  (~+45%/yr for m12_top5) are not real expectations.
+- This is a SEPARATE PRODUCT (monthly holds), not a change to the daily screen. Not
+  built/adopted — user decision pending. If pursued: compute max drawdown + momentum-crash
+  exposure first, decide sleeve budget, and define execution rules (TR, monthly, ~10 names).
+- Sweep tally: 14 studies, 1 pass (this one), 13 no-change.
