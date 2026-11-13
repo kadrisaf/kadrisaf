@@ -1,0 +1,59 @@
+name: Momentum sleeve rebalance
+
+# Monthly rebalance report for the long-term 3-month-momentum sleeve
+# (halal_trader/momentum_sleeve.py), funded by the user on 2026-11-13.
+# Runs on the 1st of each month; the user executes manually on the first
+# trading day after it, after 15:30 Berlin. Both CET and CEST crons are
+# scheduled; the guard keeps it to one report per month.
+on:
+  workflow_dispatch: {}
+  schedule:
+    - cron: "0 5 1 * *"   # 07:00 CEST
+    - cron: "0 6 1 * *"   # 07:00 CET
+
+permissions:
+  contents: write
+
+concurrency:
+  group: momentum-sleeve
+  cancel-in-progress: false
+
+jobs:
+  rebalance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Guard - once per month
+        id: guard
+        run: |
+          month=$(date -u +%Y-%m)
+          if ls reports/momentum/"$month"-*.md >/dev/null 2>&1 && [ "${{ github.event_name }}" = "schedule" ]; then
+            echo "Report for $month already exists -- skipping."
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-python@v5
+        if: steps.guard.outputs.run == 'true'
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        if: steps.guard.outputs.run == 'true'
+        run: pip install -r requirements.txt
+
+      - name: Build the rebalance report
+        if: steps.guard.outputs.run == 'true'
+        run: python -m halal_trader.momentum_sleeve
+
+      - name: Commit the report
+        if: steps.guard.outputs.run == 'true'
+        run: |
+          git config user.name "halal-trader-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add reports/momentum/
+          git diff --cached --quiet || git commit -m "Momentum sleeve rebalance $(date -u +%F)"
+          git push

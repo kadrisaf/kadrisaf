@@ -412,3 +412,23 @@ See the message the user was given alongside this file.
 - Net read: the return edge is real-looking but the sleeve is a rollercoaster — it can
   trail "just hold everything" by ~half its value for 2 years. Sizing/funding decision
   entirely with the user; nothing adopted, nothing built.
+
+## 2026-11-13: Momentum sleeve FUNDED (user decision) — infrastructure built
+- User: "fund the 3-month momentum sleeve with long-term money". Built, not yet bought:
+  halal_trader/momentum_sleeve.py (live rules pre-registered in docstring: 3m momentum
+  skip-month, top 10, equal weight at entry, survivors untouched, sells fund buys,
+  execute 1st trading day after report after 15:30 Berlin, alternates rule for TR
+  availability, NO stops/early exits between rebalances).
+- Separate ledgers: track_record/momentum_holdings.csv + momentum_trades.csv (empty,
+  headers only). Monthly GitHub Actions: .github/workflows/momentum_sleeve.yml (1st of
+  month 07:00 Berlin, guard = one report/month). Reports land in reports/momentum/.
+- COMPLIANCE BUG CAUGHT before first buy: sleeve initially ignored data/shariah_overrides.csv
+  and ranked SHOP top-10. Fixed (overrides bind exactly like cli.py), regression test added.
+  NOTE: the tune_* backtests also use screen_company only (no overrides) — consistent
+  within studies, but worth remembering.
+- First target (2026-11-13): FTG.VI, TEAM, BSP, ZS, OKTA, DOCU, CRM, SAP, NOW, MSFT;
+  alternates EPAM, MRVL, WDAY, AEM, A. FTG.VI is illiquid (677k$/day) and may be absent
+  on TR -> alternate rule, pre-registered, no post-hoc liquidity gate.
+- AWAITING USER: the EUR amount. Fee math given (TR 1 EUR/order, ~11 orders/mo at 0.57
+  turnover): 1k->~13%/yr drag, 3k->~4.5%, 5k->~2.7%, 10k->~1.4%. User buys manually,
+  sends screenshots; fills go to momentum ledger, holdings file updated then.
