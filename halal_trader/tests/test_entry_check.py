@@ -35,6 +35,22 @@ class TestParseRankedRows:
     def test_non_ranked_lines_ignored(self):
         assert parse_ranked_rows("- **KO**: no setup\nrandom text") == []
 
+    def test_parses_table_with_adx_shadow_column(self):
+        """Regression 2026-11-16: the ADX* column (added 2026-11-12) shifted
+        the table; the old regex read ADX as the stop and the stop as the
+        target, turning a valid UPS CONFIRM into a bogus CAUTION."""
+        snippet = (
+            "| # | Symbol | Close | RSI | Rel.Vol | ADX* | Stop | Target | R:R | Max hold | Score |\n"
+            "|---|---|---|---|---|---|---|---|---|---|---|\n"
+            "| 1 | **UPS** | 112.4 | 64.91 | 1.4x | 50.4 | 107.2196 | 120.1706 | 1.5 | 5d | 37.72 |\n"
+            "| 2 | **AIR.PA** | 210.5 | 60.0 | 1.3x | -- | 200.0 | 226.0 | 1.5 | 5d | 30.0 |\n"
+        )
+        rows = parse_ranked_rows(snippet)
+        assert [(r.symbol, r.close, r.stop, r.target) for r in rows] == [
+            ("UPS", 112.4, 107.2196, 120.1706),
+            ("AIR.PA", 210.5, 200.0, 226.0),
+        ]
+
 
 class TestCheckRow:
     def test_confirm_when_everything_holds(self):

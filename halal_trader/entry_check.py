@@ -72,13 +72,17 @@ class CheckResult:
 
 def parse_ranked_rows(report_text: str) -> List[RankedRow]:
     """The ranked table's symbol, close, stop and target columns:
-    | 1 | **EPAM** | 137.36 | 62.48 | 2.9x | 125.2423 | 155.5365 | ...
+    | 1 | **EPAM** | 137.36 | 62.48 | 2.9x | 50.4 | 125.2423 | 155.5365 | 1.5 | 5d | ...
+    The info-only ADX column (added 2026-11-12, value or --) is optional;
+    the R:R + max-hold columns after the target anchor the match so stop
+    and target can never be read from the wrong columns again.
     """
     rows: List[RankedRow] = []
     for line in report_text.splitlines():
         m = re.match(
             r"^\| \d+ \| \*\*([A-Z0-9.\-]+)\*\* \| ([\d.]+) \| [\d.]+ "
-            r"\| [\d.]+x \| ([\d.]+) \| ([\d.]+) \|",
+            r"\| [\d.]+x \| (?:(?:[\d.]+|--) \| )?([\d.]+) \| ([\d.]+) "
+            r"\| [\d.]+ \| \d+d \|",
             line,
         )
         if m:
