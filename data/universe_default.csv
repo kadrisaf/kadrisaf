@@ -168,7 +168,7 @@ ROL
 CTAS
 PAYX
 ADP
-VRSK
+# VRSK -- removed 2026-11-18: not tradable on Trade Republic (user checked; ranked #1 that day, unbuyable)
 VRSN
 EPAM
 ZS
