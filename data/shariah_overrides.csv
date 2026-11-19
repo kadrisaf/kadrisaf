@@ -5,3 +5,4 @@ MELI,exclude,"Mercado Credito lending arm earns interest income",2026-10-27 pend
 SHOP,exclude,"Shopify Capital merchant lending arm",2026-10-27 pending certified check
 ABNB,exclude,"interest earned on guest-payment float is material",2026-10-27 pending certified check
 BKNG,exclude,"interest on booking float; commonly rated non-compliant by certified apps",2026-10-27 pending certified check
+ANT,exclude,"Claude Gov line serves US defense/intelligence (DoD agreement with $200M ceiling, Palantir channel, classified-intelligence use) -- same standard as PLTR/HON; S-1 also shows H1-2026 interest income ~$1.1B on ~$16.3B revenue (~7% > 5% threshold) and ~$122-132B cash/short-term investments vs IPO market cap (cash ratio at/near 33% limit)",2026-11-19 pending certified check
